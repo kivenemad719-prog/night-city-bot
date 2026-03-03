@@ -339,14 +339,38 @@ await target.send({
       return interaction.showModal(modal);
     }
   }
-
   if (interaction.isModalSubmit()) {
+    if (interaction.customId.startsWith("reject_")) {
 
-    const member = await interaction.guild.members.fetch(interaction.user.id);
-    if (!isStaff(member))
-      return interaction.reply({ content: "❌ ليس لديك صلاحية", ephemeral: true });
+        const userId = interaction.customId.replace("reject_", "");
+        const target = await interaction.guild.members.fetch(userId);
 
-    const reason = interaction.fields.getTextInputValue("reason");
+        const reason = interaction.fields.getTextInputValue("reason");
+
+        await target.roles.add(RP_REJECT2_ROLE_ID).catch(() => {});
+
+        try {
+            await target.send({
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor(0xff0000)
+                        .setTitle("❌ تم رفض طلبك")
+                        .setDescription(`**سبب الرفض:**\n${reason}`)
+                        .setFooter({ text: "Night City RP • الإدارة" })
+                        .setTimestamp()
+                ]
+            });
+        } catch (err) {}
+
+        await interaction.update({
+            content: `❌ تم الرفض بواسطة ${interaction.user}`,
+            embeds: [],
+            components: []
+        });
+    }
+}
+
+
 
     if (interaction.customId.startsWith("reject_")) {
 
@@ -409,5 +433,6 @@ await interaction.reply({ embeds: [rejectEmbed], ephemeral: true });
 
 
 client.login(process.env.TOKEN);
+
 
 
