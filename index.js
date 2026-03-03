@@ -86,16 +86,18 @@ async function createTicket(interaction, categoryId, name) {
 const ticketEmbed = new EmbedBuilder()
 .setColor(0x2b2d31)
 .setTitle(" تذكرة دعم جديدة")
-.setDescription(
+.setDescription(`
 ━━━━━━━━━━━━━━━━━━
+
 👋 أهلاً ${interaction.user}
 
-يرجى شرح مشكلتك بالتفصيل.
-سيتم الرد عليك من الإدارة قريبًا.
+برجاء شرح مشكلتك بالتفصيل.
+سيتم الرد عليك من قبل الإدارة قريبًا.
 
-🔒 لإغلاق التذكرة اضغط الزر بالأسفل.
+🔒 بالأسفل زر إغلاق التذكرة.
+
 ━━━━━━━━━━━━━━━━━━
-)
+`)
 .setFooter({ text: "Night City RP • Support System" })
 .setTimestamp();
 
@@ -407,4 +409,5 @@ await interaction.reply({ embeds: [rejectEmbed], ephemeral: true });
 
 
 client.login(process.env.TOKEN);
+
 
