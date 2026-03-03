@@ -319,10 +319,16 @@ client.on("interactionCreate", async interaction => {
         }
       }
 
-      try {
-        await target.send(`❌ تم رفض طلبك.\n\n📌 السبب:\n${reason}`);
-      } catch {}
+const { EmbedBuilder } = require('discord.js');
 
+const rejectEmbed = new EmbedBuilder()
+  .setColor('#ff1e1e')
+  .setTitle('❌ تم رفض طلبك')
+  .setDescription(`📌 السبب:\n${reason}`)
+  .setFooter({ text: 'Night City RP' })
+  .setTimestamp();
+
+await interaction.reply({ embeds: [rejectEmbed], ephemeral: true });
       return interaction.reply({ content: "تم الرفض وإرسال السبب.", ephemeral: true });
     }
 
@@ -345,5 +351,6 @@ client.on("interactionCreate", async interaction => {
     }
   }
 });
+
 
 client.login(process.env.TOKEN);
