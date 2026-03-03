@@ -83,10 +83,26 @@ async function createTicket(interaction, categoryId, name) {
       .setStyle(ButtonStyle.Danger)
   );
 
-  await channel.send({
-    content: `مرحبًا ${interaction.user}`,
-    components: [row]
-  });
+const ticketEmbed = new EmbedBuilder()
+.setColor(0x2b2d31)
+.setTitle(" تذكرة دعم جديدة")
+.setDescription(
+━━━━━━━━━━━━━━━━━━
+👋 أهلاً ${interaction.user}
+
+يرجى شرح مشكلتك بالتفصيل.
+سيتم الرد عليك من الإدارة قريبًا.
+
+🔒 لإغلاق التذكرة اضغط الزر بالأسفل.
+━━━━━━━━━━━━━━━━━━
+)
+.setFooter({ text: "Night City RP • Support System" })
+.setTimestamp();
+
+await channel.send({
+  embeds: [ticketEmbed],
+  components: [row]
+});
 
   return channel;
 }
@@ -252,7 +268,32 @@ client.on("interactionCreate", async interaction => {
       }
 
       try {
-        await target.send("🎉 تم قبول طلبك! مبروك 🎊");
+        const approveEmbed = new EmbedBuilder()
+.setColor(0x00ff88)
+.setTitle("🎉 تم قبول طلبك!")
+.setDescription(
+`━━━━━━━━━━━━━━━━━━
+✅ **تهانينا!**
+
+تم قبولك مبدئيًا 👑
+
+اضغط الزر بالأسفل للدخول إلى التقديم الصوتي 🎙
+━━━━━━━━━━━━━━━━━━`
+)
+.setFooter({ text: "Night City RP • الإدارة" })
+.setTimestamp();
+
+const row = new ActionRowBuilder().addComponents(
+  new ButtonBuilder()
+    .setLabel("🎙 دخول التقديم الصوتي")
+    .setStyle(ButtonStyle.Link)
+    .setURL("https://discord.com/channels/1465609781837303873/1465752669564964935")
+);
+
+await target.send({
+  embeds: [approveEmbed],
+  components: [row]
+});
       } catch {}
 
       return interaction.update({ content: "تم القبول ✅", embeds: [], components: [] });
@@ -322,11 +363,23 @@ client.on("interactionCreate", async interaction => {
 const { EmbedBuilder } = require('discord.js');
 
 const rejectEmbed = new EmbedBuilder()
-  .setColor('#ff1e1e')
-  .setTitle('❌ تم رفض طلبك')
-  .setDescription(`📌 السبب:\n${reason}`)
-  .setFooter({ text: 'Night City RP' })
-  .setTimestamp();
+.setColor(0xff0000)
+.setTitle("🚫 تم رفض طلبك")
+.setDescription(
+`━━━━━━━━━━━━━━━━━━
+❗ **نأسف لإبلاغك**
+
+تم مراجعة طلبك من قبل الإدارة ولم يتم قبوله.
+
+📌 **سبب الرفض:**
+${reason}
+
+يمكنك إعادة التقديم بعد تطوير مستواك 💪
+━━━━━━━━━━━━━━━━━━`
+)
+.setThumbnail("https://cdn.discordapp.com/attachments/1466112784587821189/1478302405102931998/ChatGPT_Image_Feb_24_2026_05_21_31_PM.png?ex=69a7e7e6&is=69a69666&hm=95ca57ac20282a192298032bfa9030aee634a79ff551428535b00bc3dbb344dd&") // حط لوجو سيرفرك هنا
+.setFooter({ text: "Night City RP • نظام التقديم" })
+.setTimestamp();
 
 await interaction.reply({ embeds: [rejectEmbed], ephemeral: true });
       return interaction.reply({ content: "تم الرفض وإرسال السبب.", ephemeral: true });
@@ -354,3 +407,4 @@ await interaction.reply({ embeds: [rejectEmbed], ephemeral: true });
 
 
 client.login(process.env.TOKEN);
+
