@@ -428,11 +428,11 @@ await interaction.reply({ embeds: [rejectEmbed], ephemeral: true });
         interaction.channel.delete().catch(() => {});
       }, 3000);
     }
-  }
 });
 
 
 client.login(process.env.TOKEN);
+
 
 
 
