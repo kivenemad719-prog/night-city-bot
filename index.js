@@ -436,10 +436,11 @@ interaction.channel.delete().catch(() => {});
 
 }
 
-});   // إغلاق interactionCreate
+}   // إغلاق interactionCreate
 
 
 client.login(process.env.TOKEN);
+
 
 
 
