@@ -416,7 +416,6 @@ ${reason}
 
 
       return interaction.reply({ content: "تم الرفض وإرسال السبب.", ephemeral: true });
-    }
 
     if (interaction.customId === "close_reason") {
 
@@ -439,6 +438,7 @@ ${reason}
 
 
 client.login(process.env.TOKEN);
+
 
 
 
