@@ -116,22 +116,34 @@ client.once("ready", async () => {
   const guild = await client.guilds.fetch(GUILD_ID);
 
   const rpChannel = await guild.channels.fetch(RP_PANEL_CHANNEL_ID);
-  await rpChannel.send({
-    embeds: [new EmbedBuilder()
-      .setTitle("📜 تقديم السيرفر")
-      .setDescription("اضغط للتقديم (سيتم سؤالك في الخاص)")
-      .setColor(0x2b2d31)],
-    components: [
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("open_rp")
-          .setLabel("📜 تقديم RP")
-          .setStyle(ButtonStyle.Success)
-      )
-    ]
-  });
+
+const messages = await rpChannel.messages.fetch({ limit: 10 });
+const exists = messages.find(m => m.author.id === client.user.id);
+
+if (!exists) {
+
+await rpChannel.send({
+embeds: [new EmbedBuilder()
+.setTitle("📋 تقديم السيرفر")
+.setDescription("اضغط للتقديم")
+.setColor(0x2b2d31)],
+components: [
+new ActionRowBuilder().addComponents(
+new ButtonBuilder()
+.setCustomId("open_rp")
+.setLabel("📄 تقديم RP")
+.setStyle(ButtonStyle.Success)
+)
+]
+});
+
 
   const ticketChannel = await guild.channels.fetch(TICKETS_PANEL_CHANNEL_ID);
+  const messages = await rpChannel.messages.fetch({ limit: 10 });
+const exists = messages.find(m => m.author.id === client.user.id);
+
+if (!exists) {
+await rpChannel.send({
   await ticketChannel.send({
     embeds: [new EmbedBuilder()
       .setTitle("🎫 نظام التيكتات")
@@ -379,7 +391,6 @@ await target.send({
 
     
 
-const { EmbedBuilder } = require('discord.js');
 
 const rejectEmbed = new EmbedBuilder()
 .setColor(0xff0000)
@@ -425,6 +436,7 @@ ${reason}
 
 
 client.login(process.env.TOKEN);
+
 
 
 
