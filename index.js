@@ -287,15 +287,20 @@ client.on("interactionCreate", async interaction => {
         const approveEmbed = new EmbedBuilder()
 .setColor(0x00ff88)
 .setTitle("🎉 تم قبول طلبك!")
-.setDescription(
-`━━━━━━━━━━━━━━━━━━
+          const approveEmbed = new EmbedBuilder()
+.setColor(0x00ff88)
+.setTitle("🎉 تم قبول طلبك!")
+.setDescription(`
+━━━━━━━━━━━━━━━━━━━━
+
 ✅ **تهانينا!**
 
-تم قبولك مبدئيًا 👑
+👑 تم قبولك مبدئيًا
 
-اضغط الزر بالأسفل للدخول إلى التقديم الصوتي 🎙
-━━━━━━━━━━━━━━━━━━`
-)
+🎤 اضغط الزر بالأسفل للدخول إلى التقديم الصوتي
+
+━━━━━━━━━━━━━━━━━━━━
+`)
 .setFooter({ text: "Night City RP • الإدارة" })
 .setTimestamp();
 
@@ -369,16 +374,17 @@ await target.send({
 }
 
         try {
-            await target.send({
-                embeds: [
-                    new EmbedBuilder()
-                        .setColor(0xff0000)
-                        .setTitle("❌ تم رفض طلبك")
-                        .setDescription(`**سبب الرفض:**\n${reason}`)
-                        .setFooter({ text: "Night City RP • الإدارة" })
-                        .setTimestamp()
-                ]
-            });
+            await interaction.update({
+  embeds: [
+    new EmbedBuilder()
+      .setColor(0xff0000)
+      .setTitle("❌ تم رفض الطلب")
+      .setDescription(`📌 **سبب الرفض:**\n${reason}\n\n👮 بواسطة: ${interaction.user}`)
+      .setFooter({ text: "Night City RP • الإدارة" })
+      .setTimestamp()
+  ],
+  components: []
+});
         } catch (err) {}
 
         await interaction.update({
@@ -439,3 +445,4 @@ interaction.channel.delete().catch(() => {});
 }); // interactionCreate
 
 client.login(process.env.TOKEN);
+
