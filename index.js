@@ -508,7 +508,7 @@ client.on("interactionCreate", async (interaction) => {
         if (!interaction.guild) return;
         const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
         if (!isStaffMember(member)) {
-          return interaction.reply({ content: "❌ هذا للطاقم فقط.", ephemeral: true });
+          return interaction.reply({ content: "❌ هذا للاداره فقط.", ephemeral: true });
         }
 
         const parts = customId.split("_"); // approve|reject, rp|creator, userId
@@ -697,3 +697,4 @@ if (!TOKEN) {
 }
 
 client.login(TOKEN);
+
