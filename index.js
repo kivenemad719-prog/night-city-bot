@@ -426,7 +426,7 @@ const ticketOwner = interaction.channel.permissionOverwrites.cache
 try {
 const user = await client.users.fetch(ticketOwner.id);
 await user.send(`🔒 تم إغلاق التكت\n\n📌 السبب:\n${reason}`);
-} catch {}
+} catch (err) {}
 
 await interaction.reply({ content: "جاري إغلاق التكت...", ephemeral: true });
 
@@ -438,9 +438,9 @@ interaction.channel.delete().catch(() => {});
 
 });   // إغلاق interactionCreate
 
-});   // إغلاق client.on("interactionCreate")
 
 client.login(process.env.TOKEN);
+
 
 
 
