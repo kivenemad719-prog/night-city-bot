@@ -142,8 +142,8 @@ new ButtonBuilder()
   const messages = await rpChannel.messages.fetch({ limit: 10 });
 const exists = messages.find(m => m.author.id === client.user.id);
 
-if (!exists) {
-await rpChannel.send({
+if (!exists) {          
+                                              
   await ticketChannel.send({
     embeds: [new EmbedBuilder()
       .setTitle("🎫 نظام التيكتات")
@@ -437,6 +437,7 @@ ${reason}
 
 
 client.login(process.env.TOKEN);
+
 
 
 
