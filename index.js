@@ -395,18 +395,19 @@ await target.send({
 const rejectEmbed = new EmbedBuilder()
 .setColor(0xff0000)
 .setTitle("🚫 تم رفض طلبك")
-.setDescription(
-`━━━━━━━━━━━━━━━━━━
-❗ **نأسف لإبلاغك**
+.setDescription(`
+________________
 
-تم مراجعة طلبك من قبل الإدارة ولم يتم قبوله.
+**نعتذر لإزعاجك**
 
-📌 **سبب الرفض:**
+تم مراجعة طلبك من قبل الإدارة ولم يتم قبوله
+
+⭐ **سبب الرفض:**
+
 ${reason}
 
 يمكنك إعادة التقديم بعد تطوير مستواك 💪
-━━━━━━━━━━━━━━━━━━`
-)
+`)
 .setThumbnail("https://cdn.discordapp.com/attachments/1466112784587821189/1478302405102931998/ChatGPT_Image_Feb_24_2026_05_21_31_PM.png?ex=69a7e7e6&is=69a69666&hm=95ca57ac20282a192298032bfa9030aee634a79ff551428535b00bc3dbb344dd&") // حط لوجو سيرفرك هنا
 .setFooter({ text: "Night City RP • نظام التقديم" })
 .setTimestamp();
@@ -436,6 +437,7 @@ ${reason}
 
 
 client.login(process.env.TOKEN);
+
 
 
 
