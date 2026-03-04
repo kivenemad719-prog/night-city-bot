@@ -417,27 +417,31 @@ ${reason}
 
       return interaction.reply({ content: "تم الرفض وإرسال السبب.", ephemeral: true });
 
-    if (interaction.customId === "close_reason") {
+if (interaction.customId === "close_reason") {
 
-      const ticketOwner = interaction.channel.permissionOverwrites.cache
-        .filter(p => p.type === 1 && p.allow.has(PermissionsBitField.Flags.ViewChannel))
-        .first();
+const ticketOwner = interaction.channel.permissionOverwrites.cache
+.filter(p => p.type === 1 && p.allow.has(PermissionsBitField.Flags.ViewChannel))
+.first();
 
-      try {
-        const user = await client.users.fetch(ticketOwner.id);
-        await user.send(`🔒 تم إغلاق التيكت.\n\n📌 السبب:\n${reason}`);
-      } catch {}
+try {
+const user = await client.users.fetch(ticketOwner.id);
+await user.send(`🔒 تم إغلاق التكت\n\n📌 السبب:\n${reason}`);
+} catch {}
 
-      await interaction.reply({ content: "جاري إغلاق التيكت...", ephemeral: true });
+await interaction.reply({ content: "جاري إغلاق التكت...", ephemeral: true });
 
-      setTimeout(() => {
-        interaction.channel.delete().catch(() => {});
-      }, 3000);
-    }
-});
+setTimeout(() => {
+interaction.channel.delete().catch(() => {});
+}, 3000);
 
+}
+
+});   // إغلاق interactionCreate
+
+});   // إغلاق client.on("interactionCreate")
 
 client.login(process.env.TOKEN);
+
 
 
 
