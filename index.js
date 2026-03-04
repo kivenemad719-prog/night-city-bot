@@ -377,19 +377,7 @@ await target.send({
 
 
 
-    if (interaction.customId.startsWith("reject_")) {
-
-      const userId = interaction.customId.replace("reject_", "");
-      const target = await interaction.guild.members.fetch(userId);
-
-      if (interaction.channelId === RP_APPROVAL_CHANNEL_ID) {
-        if (!target.roles.cache.has(RP_REJECT1_ROLE_ID)) {
-          await target.roles.add(RP_REJECT1_ROLE_ID);
-        } else {
-          await target.roles.remove(RP_REJECT1_ROLE_ID);
-          await target.roles.add(RP_REJECT2_ROLE_ID);
-        }
-      }
+    
 
 const { EmbedBuilder } = require('discord.js');
 
@@ -412,7 +400,7 @@ ${reason}
 .setFooter({ text: "Night City RP • نظام التقديم" })
 .setTimestamp();
 
-await interaction.reply({ embeds: [rejectEmbed], ephemeral: true });
+
       return interaction.reply({ content: "تم الرفض وإرسال السبب.", ephemeral: true });
     }
 
@@ -437,6 +425,7 @@ await interaction.reply({ embeds: [rejectEmbed], ephemeral: true });
 
 
 client.login(process.env.TOKEN);
+
 
 
 
