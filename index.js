@@ -137,28 +137,30 @@ new ButtonBuilder()
 ]
 });
 
+ 
+const ticketChannel = await guild.channels.fetch(TICKETS_PANEL_CHANNEL_ID);
 
-  const ticketChannel = await guild.channels.fetch(TICKETS_PANEL_CHANNEL_ID);
-  const messages = await rpChannel.messages.fetch({ limit: 10 });
+const messages = await ticketChannel.messages.fetch({ limit: 10 });
 const exists = messages.find(m => m.author.id === client.user.id);
 
-if (!exists) {          
-                                              
-  await ticketChannel.send({
-    embeds: [new EmbedBuilder()
-      .setTitle("🎫 نظام التيكتات")
-      .setDescription("اختر الخدمة")
-      .setColor(0x2b2d31)],
-    components: [
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("open_creator").setLabel("🎥 صانع محتوى").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId("open_support").setLabel("🛠 دعم").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId("open_report").setLabel("⚠ شكوى").setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId("open_appeal").setLabel("🔓 استئناف").setStyle(ButtonStyle.Primary)
-      )
-    ]
-  });
+if (!exists) {
+
+await ticketChannel.send({
+embeds: [new EmbedBuilder()
+.setTitle("🎫 نظام التكتات")
+.setDescription("اختر الخدمة")
+.setColor(0x2b2d31)],
+components: [
+new ActionRowBuilder().addComponents(
+new ButtonBuilder().setCustomId("open_creator").setLabel("🎥 صانع محتوى").setStyle(ButtonStyle.Primary),
+new ButtonBuilder().setCustomId("open_support").setLabel("🛠 دعم").setStyle(ButtonStyle.Secondary),
+new ButtonBuilder().setCustomId("open_report").setLabel("⚠️ تبليغ").setStyle(ButtonStyle.Danger),
+new ButtonBuilder().setCustomId("open_appeal").setLabel("📩 استئناف").setStyle(ButtonStyle.Primary)
+)
+]
 });
+
+}
 
 /* ================== DM سؤال سؤال ================== */
 
@@ -437,6 +439,7 @@ ${reason}
 
 
 client.login(process.env.TOKEN);
+
 
 
 
