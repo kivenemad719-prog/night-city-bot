@@ -439,20 +439,3 @@ interaction.channel.delete().catch(() => {});
 }); // interactionCreate
 
 client.login(process.env.TOKEN);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
