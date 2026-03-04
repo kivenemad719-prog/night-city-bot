@@ -347,7 +347,12 @@ await target.send({
 
         const reason = interaction.fields.getTextInputValue("reason");
 
-        await target.roles.add(RP_REJECT2_ROLE_ID).catch(() => {});
+        if (!target.roles.cache.has(RP_REJECT1_ROLE_ID)) {
+    await target.roles.add(RP_REJECT1_ROLE_ID);
+} else {
+    await target.roles.remove(RP_REJECT1_ROLE_ID).catch(() => {});
+    await target.roles.add(RP_REJECT2_ROLE_ID);
+}
 
         try {
             await target.send({
@@ -432,6 +437,7 @@ await interaction.reply({ embeds: [rejectEmbed], ephemeral: true });
 
 
 client.login(process.env.TOKEN);
+
 
 
 
