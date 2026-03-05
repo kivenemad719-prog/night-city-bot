@@ -1,3 +1,4 @@
+const activeApplications = new Set();
 // index.js (Discord.js v14)
 // IMPORTANT: Put TOKEN in Railway env variables. DO NOT hardcode token here.
 
@@ -191,6 +192,35 @@ async function ensurePanels(guild) {
 }
 
 async function startDmFlow(user, guild, type) {
+  async function startDmFlow(user, guild, type) {
+
+const member = await guild.members.fetch(user.id);
+
+// منع فتح أكثر من تقديم
+if (activeApplications.has(user.id)) {
+try {
+await user.send("⚠️ لديك تقديم مفتوح بالفعل، أكمل التقديم أولاً.");
+} catch {}
+return;
+}
+
+activeApplications.add(user.id);
+
+// منع التقديم لو رفض نهائي
+if (member.roles.cache.has(RP_REJECT2_ROLE_ID)) {
+try {
+await user.send("⛔ تم رفض طلبك نهائياً ولا يمكنك التقديم مرة أخرى.");
+} catch {}
+return;
+}
+
+// منع التقديم لو مقبول بالفعل
+if (member.roles.cache.has(RP_PASS_ROLE_ID)) {
+try {
+await user.send("✅ أنت مقبول بالفعل في السيرفر.");
+} catch {}
+return;
+}
   // Create session
   const questions = type === "rp" ? RP_QUESTIONS : CREATOR_QUESTIONS;
   sessions.set(user.id, {
@@ -349,7 +379,10 @@ async function sendTicketIntro(ch, opener, kindLabel) {
       .setStyle(ButtonStyle.Danger)
   );
 
-  await ch.send({ embeds: [embed], components: [row] });
+  await ch.send({
+    embeds: [embed],
+    components: [row] 
+  });
 }
 
 // =====================
@@ -697,4 +730,5 @@ if (!TOKEN) {
 }
 
 client.login(TOKEN);
+
 
