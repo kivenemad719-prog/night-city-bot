@@ -195,7 +195,7 @@ async function buildTranscript(channel, limit = 100) {
   const arr = [...msgs.values()].reverse();
   const lines = arr.map((m) => {
     const time = new Date(m.createdTimestamp).toLocaleString();
-    const author = ${m.author?.tag || "Unknown"};
+    const author = m.author?.tag || "Unknown";
     const content = (m.content || "").replace(/\n/g, " ");
     return [${time}] ${author}: ${content}.trim();
   });
@@ -918,3 +918,4 @@ if (!TOKEN) {
 }
 
 client.login(TOKEN);
+
