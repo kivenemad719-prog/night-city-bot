@@ -1,5 +1,6 @@
-// index.js (discord.js v14) — Night City RP
-// Put TOKEN in Railway Variables: TOKEN=xxxxx  (DO NOT hardcode token here)
+// index.js — Night City RP Bot (discord.js v14)
+// ضع TOKEN في Railway Variables فقط
+// لا تضع التوكن داخل الملف
 
 const {
   Client,
@@ -14,6 +15,7 @@ const {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
+  MessageFlags,
 } = require("discord.js");
 
 // ===================== CONFIG =====================
@@ -22,24 +24,22 @@ const TOKEN = process.env.TOKEN;
 // Review channels
 const RP_REVIEW_CHANNEL_ID = "1477562619001831445";
 const CREATOR_REVIEW_CHANNEL_ID = "1477777545767420116";
-
-// ✅ NEW: Admin review channel
 const ADMIN_REVIEW_CHANNEL_ID = "1479216695938650263";
 
 // Panels channels
-const RP_APPLY_PANEL_CHANNEL_ID = "1465803291714785481";       // بانل تقديم RP (لوحده)
-const SERVICES_PANEL_CHANNEL_ID = "1465757986684403828";       // بانل خدمات/تكتات/صانع محتوى/إدارة
+const RP_APPLY_PANEL_CHANNEL_ID = "1465803291714785481"; // بانل تقديم السيرفر
+const SERVICES_PANEL_CHANNEL_ID = "1465757986684403828"; // بانل الخدمات
 
-// Voice interview room (Voice Channel ID)
+// Voice interview room
 const VOICE_ROOM_ID = "1465752669564964935";
 
 // Ticket categories
 const SUPPORT_CATEGORY_ID = "1473850568811221194";
-const APPEAL_CATEGORY_ID  = "1477765907496308897";
-const REPORT_CATEGORY_ID  = "1473850252149788867";
+const APPEAL_CATEGORY_ID = "1477765907496308897";
+const REPORT_CATEGORY_ID = "1473850252149788867";
 const SUGGEST_CATEGORY_ID = "1477766632817426675";
 
-// Admin roles (who can approve/reject/close tickets)
+// Admin roles (صلاحية الإدارة)
 const ADMIN_ROLE_IDS = [
   "1465798793772666941",
   "1465800480474005569",
@@ -47,60 +47,72 @@ const ADMIN_ROLE_IDS = [
 ];
 
 // Roles
-const CREATOR_ROLE_ID     = "1477845260095979552";
-const RP_PASS_ROLE_ID     = "1477569088988512266";
-const RP_REJECT1_ROLE_ID  = "1477568923208519681";
-const RP_REJECT2_ROLE_ID  = "1477569051185119332";
+const CREATOR_ROLE_ID = "1477845260095979552";
+const RP_PASS_ROLE_ID = "1477569088988512266";
+const RP_REJECT1_ROLE_ID = "1477568923208519681";
+const RP_REJECT2_ROLE_ID = "1477569051185119332";
 
-// ✅ NEW: Role for accepted admin application
-// NOTE: Discord Role IDs are usually 18-19 digits.
-// If your ID is missing a digit, this won't work.
-const ADMIN_ACCEPT_ROLE_ID = "14675937708948158";
+// رول الإدارة عند القبول
+// لو الرول ما اتضافش، راجع الـ ID ده
+const ADMIN_ACCEPT_ROLE_ID = "1467593770898948158";
 
-// Panel markers (avoid duplicates on restart)
-const PANEL_MARKER_RP = "PANEL_RP_APPLY_v2";
-const PANEL_MARKER_SERVICES = "PANEL_SERVICES_v2";
+// Panel markers
+const PANEL_MARKER_RP = "PANEL_RP_APPLY_v3";
+const PANEL_MARKER_SERVICES = "PANEL_SERVICES_v3";
 
-// Anti-spam / sessions
-const activeApplications = new Set();           // userId in flow
-const sessions = new Map();                     // userId -> {type, step, answers, guildId}
-const applyCooldown = new Map();                // userId -> timestamp
-const COOLDOWN_MS = 2 * 60 * 1000;              // 2 minutes
+// ===================== MEMORY =====================
+const activeApplications = new Set(); // userId
+const sessions = new Map(); // userId -> { type, step, answers, guildId }
+const applyCooldown = new Map(); // userId -> timestamp
+const COOLDOWN_MS = 60 * 1000; // 1 minute
 
 // ===================== QUESTIONS =====================
 const RP_QUESTIONS = [
-  { key: "fullName", q: "📌 *الاسم الكامل للشخصية؟*" },
-  { key: "age", q: "🎂 *العمر؟*" },
-  { key: "rules", q: "📚 *هل قرأت القوانين؟* اكتب (نعم) + اذكر أهم 3 نقاط فهمتهم." },
-  { key: "experience", q: "🎮 *هل عندك خبرة RP؟* اشرح باختصار." },
-  { key: "story", q: "📝 *اكتب قصة للشخصية (150 كلمة على الأقل).*" },
-  { key: "mic", q: "🎙️ *هل المايك كويس؟* (نعم/لا) + نوعه لو تعرف." },
-  { key: "commit", q: "✅ *هل تلتزم بالقوانين واحترام الإدارة؟* (نعم/لا)" },
+  { key: "fullName", q: "📌 **ما الاسم الكامل للشخصية؟**" },
+  { key: "age", q: "🎂 **كم عمر الشخصية؟**" },
+  { key: "country", q: "🌍 **من أي دولة / مدينة؟**" },
+  { key: "playHours", q: "⏱️ **كم ساعة تقدر تتواجد يوميًا؟**" },
+  { key: "experience", q: "🎮 **هل عندك خبرة RP؟ اذكر أين وكم مدة لعبت.**" },
+  { key: "rpMeaning", q: "📖 **اشرح ما معنى RP بالنسبة لك.**" },
+  { key: "powerGaming", q: "🚫 **ما معنى PowerGaming؟ اشرح مع مثال.**" },
+  { key: "metaGaming", q: "🚫 **ما معنى MetaGaming؟ اشرح مع مثال.**" },
+  { key: "fearRP", q: "😨 **ما معنى FearRP؟ اشرح مع مثال.**" },
+  { key: "rules", q: "📚 **هل قرأت القوانين؟ اكتب نعم + اذكر أهم 5 نقاط فهمتها.**" },
+  { key: "reportAction", q: "🚨 **إذا رأيت لاعبًا يكسر القوانين، ماذا ستفعل؟**" },
+  { key: "story", q: "📝 **اكتب قصة للشخصية 150 كلمة على الأقل.**" },
+  { key: "mic", q: "🎙️ **هل لديك مايك جيد؟ (نعم/لا) + نوعه لو تعرف**" },
+  { key: "respectAdmin", q: "👮 **هل تلتزم بقرارات الإدارة وتحترمها؟ (نعم/لا)**" },
+  { key: "whyServer", q: "⭐ **لماذا تريد الانضمام إلى هذا السيرفر؟**" },
 ];
 
 const CREATOR_QUESTIONS = [
-  { key: "channelLink", q: "🔗 *رابط القناة/الحساب؟*" },
-  { key: "followers", q: "👥 *عدد المتابعين/المشتركين؟*" },
-  { key: "contentType", q: "🎥 *نوع المحتوى اللي بتقدمه؟*" },
-  { key: "schedule", q: "📅 *جدول النشر/البث؟* (أيام/ساعات)" },
-  { key: "why", q: "💡 *ليه عايز تكون صانع محتوى عندنا؟*" },
-  { key: "agree", q: "✅ *تتعهد بعدم مخالفة القوانين؟* (نعم/لا)" },
+  { key: "platform", q: "🎥 **ما المنصة التي تنشر عليها؟ (YouTube / TikTok / Twitch / Kick...)**" },
+  { key: "channelLink", q: "🔗 **ارسل رابط القناة / الحساب.**" },
+  { key: "followers", q: "👥 **كم عدد المتابعين / المشتركين؟**" },
+  { key: "contentType", q: "📹 **ما نوع المحتوى الذي تقدمه؟**" },
+  { key: "schedule", q: "📅 **ما جدول النشر / البث عندك؟**" },
+  { key: "rpExperience", q: "🎮 **هل عندك خبرة في سيرفرات RP؟ اشرح باختصار.**" },
+  { key: "serverPromo", q: "📢 **كيف ستفيد السيرفر كمحتوى؟**" },
+  { key: "quality", q: "🎬 **ما جودة المحتوى عندك؟ (1080p/720p...)**" },
+  { key: "activity", q: "⏱️ **كم مرة تنشر أو تبث أسبوعيًا؟**" },
+  { key: "why", q: "💡 **لماذا تريد أن تكون صانع محتوى عندنا؟**" },
+  { key: "agree", q: "✅ **هل تلتزم بقوانين السيرفر وعدم الإساءة؟ (نعم/لا)**" },
 ];
 
-// ✅ NEW: Admin application (12 questions)
 const ADMIN_QUESTIONS = [
-  { key: "discordName", q: "👤 *اسمك في الديسكورد (مع التاغ)؟*" },
-  { key: "age", q: "🎂 *عمرك؟*" },
-  { key: "timezone", q: "🕒 *بلدك/التوقيت؟*" },
-  { key: "activity", q: "⏱️ *كم ساعة تقدر تكون متواجد يوميًا؟*" },
-  { key: "experience", q: "🛡️ *هل عندك خبرة إدارة؟ اذكر سيرفرات/مدة/دورك.*" },
-  { key: "rules", q: "📚 *اذكر 5 قوانين مهمة في السيرفر من وجهة نظرك.*" },
-  { key: "conflict", q: "🤝 *لو اتنين لاعبين بيتخانقوا، هتتصرف إزاي خطوة بخطوة؟*" },
-  { key: "metapg", q: "🎮 *اشرح الفرق بين Meta Gaming و Power Gaming + مثال لكل واحد.*" },
-  { key: "reports", q: "🚨 *لو جاء بلاغ ضد لاعب مشهور/صديقك، هتتعامل إزاي بدون تحيز؟*" },
-  { key: "evidence", q: "📎 *إيه نوع الأدلة اللي تقبلها في البلاغات؟ (فيديو/لوج/سكرين… إلخ)*" },
-  { key: "pressure", q: "🧠 *إزاي تتعامل مع ضغط/إهانة من لاعب أثناء المشكلة؟*" },
-  { key: "commit", q: "✅ *تتعهد بالحياد والالتزام بالقوانين وعدم إساءة استخدام الصلاحيات؟ (نعم/لا)*" },
+  { key: "discordName", q: "👤 **ما اسمك في الديسكورد مع التاغ؟**" },
+  { key: "age", q: "🎂 **كم عمرك؟**" },
+  { key: "timezone", q: "🕒 **ما دولتك / توقيتك؟**" },
+  { key: "activity", q: "⏱️ **كم ساعة تقدر تتواجد يوميًا؟**" },
+  { key: "experience", q: "🛡️ **هل عندك خبرة إدارة؟ اذكر السيرفرات / المدة / الرتبة.**" },
+  { key: "rules", q: "📚 **اذكر 5 قوانين مهمة في السيرفر من وجهة نظرك.**" },
+  { key: "conflict", q: "🤝 **لو لاعبين بيتخانقوا، كيف تتصرف خطوة بخطوة؟**" },
+  { key: "powerGaming", q: "🚫 **اشرح PowerGaming مع مثال.**" },
+  { key: "metaGaming", q: "🚫 **اشرح MetaGaming مع مثال.**" },
+  { key: "reports", q: "🚨 **لو جاءك بلاغ ضد صديقك أو لاعب معروف، كيف تتصرف بدون تحيز؟**" },
+  { key: "evidence", q: "📎 **ما الأدلة التي تعتمد عليها في البلاغات؟**" },
+  { key: "pressure", q: "🧠 **كيف تتعامل مع ضغط أو إهانة من لاعب أثناء المشكلة؟**" },
+  { key: "commit", q: "✅ **هل تتعهد بالحياد وعدم إساءة استخدام الصلاحيات؟ (نعم/لا)**" },
 ];
 
 // ===================== CLIENT =====================
@@ -135,9 +147,27 @@ function wordCount(text) {
 
 function tooShortAnswer(text) {
   const t = String(text || "").trim();
-  if (t.length < 3) return true;               // "1", ".", "ok"
-  if (/^[\d\W_]+$/.test(t) && t.length < 6) return true; // "111", "..", "؟؟"
+  if (t.length < 3) return true;
+  if (/^[\d\W_]+$/.test(t) && t.length < 6) return true;
   return false;
+}
+
+function now() {
+  return Date.now();
+}
+
+function inCooldown(userId) {
+  const last = applyCooldown.get(userId) || 0;
+  return now() - last < COOLDOWN_MS;
+}
+
+function setCooldown(userId) {
+  applyCooldown.set(userId, now());
+}
+
+function endSession(userId) {
+  sessions.delete(userId);
+  activeApplications.delete(userId);
 }
 
 async function findMarkerMessage(ch, marker) {
@@ -152,77 +182,93 @@ async function findMarkerMessage(ch, marker) {
 }
 
 function disableAllComponents(message) {
-  const newRows = message.components.map((row) => {
+  const rows = message.components.map((row) => {
     const r = ActionRowBuilder.from(row);
     r.components = r.components.map((c) => ButtonBuilder.from(c).setDisabled(true));
     return r;
   });
-  return newRows;
+  return rows;
 }
 
-function now() { return Date.now(); }
-
-function inCooldown(userId) {
-  const last = applyCooldown.get(userId) || 0;
-  return now() - last < COOLDOWN_MS;
+function replyEphemeral(interaction, content) {
+  return interaction.reply({
+    content,
+    flags: MessageFlags.Ephemeral,
+  });
 }
 
-function setCooldown(userId) { applyCooldown.set(userId, now()); }
+function followupEphemeral(interaction, content) {
+  return interaction.followUp({
+    content,
+    flags: MessageFlags.Ephemeral,
+  });
+}
 
 function ticketLabel(kind) {
   switch (kind) {
     case "support": return "🧰 دعم فني";
-    case "appeal":  return "🧾 استئناف";
-    case "report":  return "🚨 بلاغ";
+    case "appeal": return "🧾 استئناف";
+    case "report": return "🚨 بلاغ";
     case "suggest": return "💡 اقتراح";
-    default:        return "🎫 تذكرة";
+    default: return "🎫 تذكرة";
   }
 }
 
 function ticketCategory(kind) {
   switch (kind) {
     case "support": return SUPPORT_CATEGORY_ID;
-    case "appeal":  return APPEAL_CATEGORY_ID;
-    case "report":  return REPORT_CATEGORY_ID;
+    case "appeal": return APPEAL_CATEGORY_ID;
+    case "report": return REPORT_CATEGORY_ID;
     case "suggest": return SUGGEST_CATEGORY_ID;
-    default:        return SUPPORT_CATEGORY_ID;
+    default: return SUPPORT_CATEGORY_ID;
   }
 }
 
 async function buildTranscript(channel, limit = 100) {
   const msgs = await channel.messages.fetch({ limit }).catch(() => null);
-  if (!msgs) return "لا يوجد سجل رسائل.";
+  if (!msgs) return "لا يوجد سجل.";
   const arr = [...msgs.values()].reverse();
   const lines = arr.map((m) => {
     const time = new Date(m.createdTimestamp).toLocaleString();
     const author = m.author?.tag || "Unknown";
-    const content = (m.content || "").replace(/\n/g, " ");
-    return [${time}] ${author}: ${content}.trim();
+    const content = m.content || "";
+    return `[${time}] ${author}: ${content}`.trim();
   });
-  const text = lines.join("\n");
-  return text.length ? text.slice(0, 18000) : "لا يوجد سجل رسائل.";
+  return lines.join("\n").slice(0, 18000) || "لا يوجد سجل.";
 }
 
-// ===================== EMBEDS (STYLES) =====================
-function embedReviewHeader(title) {
+function reviewFieldsFromQuestions(questions, answers) {
+  const out = [];
+  for (const q of questions) {
+    out.push({
+      name: q.q.replace(/\*\*/g, "").slice(0, 256),
+      value: safeTrim(answers[q.key], 1024) || "-",
+      inline: false,
+    });
+  }
+  return out;
+}
+
+// ===================== EMBEDS =====================
+function reviewHeader(title, userId) {
   return new EmbedBuilder()
     .setColor(0x5865f2)
     .setTitle(title)
-    .setFooter({ text: "Night City RP • Review" })
+    .setFooter({ text: `user:${userId}` })
     .setTimestamp();
 }
 
-function embedAcceptRP(guildId) {
-  const url = https://discord.com/channels/${guildId}/${VOICE_ROOM_ID};
+function rpAcceptEmbed(guildId) {
+  const url = `https://discord.com/channels/${guildId}/${VOICE_ROOM_ID}`;
   return {
     embed: new EmbedBuilder()
       .setColor(0x00ff88)
-      .setTitle("🎉 تم قبول طلبك!")
+      .setTitle("🎉 تم قبول طلبك في السيرفر!")
       .setDescription(
         "━━━━━━━━━━━━━━━━━━\n" +
         "✅ **تهانينا!**\n\n" +
-        "تم قبولك مبدئيًا في السيرفر 👑\n" +
-        "اضغط الزر بالأسفل للدخول للمقابلة الصوتية 🎤\n" +
+        "تم قبولك **مبدئيًا** في السيرفر.\n" +
+        "اضغط الزر بالأسفل للدخول إلى **المقابلة الصوتية**.\n" +
         "━━━━━━━━━━━━━━━━━━"
       )
       .setFooter({ text: "Night City RP • الإدارة" })
@@ -236,44 +282,77 @@ function embedAcceptRP(guildId) {
   };
 }
 
-function embedAcceptCreator() {
+function creatorAcceptEmbed() {
   return new EmbedBuilder()
     .setColor(0x00ff88)
-    .setTitle("🎉 تم قبولك كصانع محتوى!")
+    .setTitle("🎥 تم قبولك كصانع محتوى!")
     .setDescription(
       "━━━━━━━━━━━━━━━━━━\n" +
       "✅ **مبروك!**\n\n" +
-      "تم قبولك ك*صانع محتوى*** في السيرفر 🎥🔥\n" +
-      "ابدأ الآن بنشر محتواك وابداعك معنا.\n" +
+      "تم قبولك في **برنامج صناع المحتوى** بالسيرفر.\n" +
+      "يرجى الالتزام بالقوانين وتمثيل السيرفر بشكل جيد.\n" +
       "━━━━━━━━━━━━━━━━━━"
     )
     .setFooter({ text: "Night City RP • الإدارة" })
     .setTimestamp();
 }
 
-function embedAcceptAdmin() {
+function adminAcceptEmbed() {
   return new EmbedBuilder()
     .setColor(0x00ff88)
-    .setTitle("👮 تم قبولك كإدارة!")
+    .setTitle("🛡️ تم قبولك في الإدارة!")
     .setDescription(
       "━━━━━━━━━━━━━━━━━━\n" +
       "✅ **مبروك!**\n\n" +
-      "تم قبولك كـ *إدارة* في السيرفر.\n" +
-      "التزم بالقوانين والحياد، وأي إساءة استخدام للصلاحيات تؤدي للعقوبة.\n" +
+      "تم قبولك في **فريق الإدارة**.\n" +
+      "تم منحك الرول، والرجاء الالتزام بالحياد وعدم إساءة استخدام الصلاحيات.\n" +
       "━━━━━━━━━━━━━━━━━━"
     )
     .setFooter({ text: "Night City RP • الإدارة" })
     .setTimestamp();
 }
 
-function embedReject(reason, title = "❌ تم رفض طلبك") {
+function rpRejectEmbed(reason, finalReject = false) {
   return new EmbedBuilder()
     .setColor(0xff2d2d)
-    .setTitle(title)
+    .setTitle(finalReject ? "⛔ تم رفض طلبك نهائيًا" : "❌ تم رفض طلبك في السيرفر")
     .setDescription(
       "━━━━━━━━━━━━━━━━━━\n" +
-      "⚠️ **سبب الرفض:**\n" +
-      ${safeTrim(reason, 1500)}\n +
+      "⭐ **سبب الرفض:**\n" +
+      `${safeTrim(reason, 1500)}\n\n` +
+      (finalReject
+        ? "تم رفضك **نهائيًا** ولا يمكنك التقديم مرة أخرى."
+        : "يمكنك إعادة التقديم بعد تحسين مستواك.")
+      + "\n━━━━━━━━━━━━━━━━━━"
+    )
+    .setFooter({ text: "Night City RP • الإدارة" })
+    .setTimestamp();
+}
+
+function creatorRejectEmbed(reason) {
+  return new EmbedBuilder()
+    .setColor(0xff2d2d)
+    .setTitle("❌ تم رفض طلب صانع المحتوى")
+    .setDescription(
+      "━━━━━━━━━━━━━━━━━━\n" +
+      "🎥 **سبب الرفض:**\n" +
+      `${safeTrim(reason, 1500)}\n\n` +
+      "يمكنك التقديم مرة أخرى لاحقًا بعد تحسين المحتوى أو النشاط.\n" +
+      "━━━━━━━━━━━━━━━━━━"
+    )
+    .setFooter({ text: "Night City RP • الإدارة" })
+    .setTimestamp();
+}
+
+function adminRejectEmbed(reason) {
+  return new EmbedBuilder()
+    .setColor(0xff2d2d)
+    .setTitle("❌ تم رفض طلب الإدارة")
+    .setDescription(
+      "━━━━━━━━━━━━━━━━━━\n" +
+      "🛡️ **سبب الرفض:**\n" +
+      `${safeTrim(reason, 1500)}\n\n` +
+      "يمكنك التقديم لاحقًا بعد تحسين المستوى والخبرة.\n" +
       "━━━━━━━━━━━━━━━━━━"
     )
     .setFooter({ text: "Night City RP • الإدارة" })
@@ -281,92 +360,94 @@ function embedReject(reason, title = "❌ تم رفض طلبك") {
 }
 
 // ===================== PANELS =====================
+async function buildRpPanelPayload() {
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle("📝 تقديم السيرفر (RP)")
+    .setDescription("اضغط الزر بالأسفل لبدء التقديم في الخاص (DM).")
+    .setFooter({ text: `Night City RP • ${PANEL_MARKER_RP}` });
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("start_rp_apply")
+      .setLabel("🚀 بدء تقديم RP")
+      .setStyle(ButtonStyle.Primary)
+  );
+
+  return { embeds: [embed], components: [row] };
+}
+
+async function buildServicesPanelPayload() {
+  const embed = new EmbedBuilder()
+    .setColor(0x2b2d31)
+    .setTitle("🛠️ خدمات السيرفر")
+    .setDescription("اختر الخدمة المطلوبة من الأزرار بالأسفل.")
+    .setFooter({ text: `Night City RP • ${PANEL_MARKER_SERVICES}` });
+
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("ticket_support").setLabel("🧰 دعم فني").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("ticket_appeal").setLabel("🧾 استئناف").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("ticket_report").setLabel("🚨 بلاغ").setStyle(ButtonStyle.Danger)
+  );
+
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("ticket_suggest").setLabel("💡 اقتراح").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("start_creator_apply").setLabel("🎥 تقديم صانع محتوى").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId("start_admin_apply").setLabel("👮 تقديم إدارة").setStyle(ButtonStyle.Primary)
+  );
+
+  return { embeds: [embed], components: [row1, row2] };
+}
+
 async function ensurePanels(guild) {
   // RP Panel
-  if (RP_APPLY_PANEL_CHANNEL_ID) {
+  {
     const ch = await guild.channels.fetch(RP_APPLY_PANEL_CHANNEL_ID).catch(() => null);
     if (ch && ch.isTextBased()) {
       const exists = await findMarkerMessage(ch, PANEL_MARKER_RP);
+      const payload = await buildRpPanelPayload();
       if (!exists) {
-        const embed = new EmbedBuilder()
-          .setColor(0x5865f2)
-          .setTitle("📝 تقديم السيرفر (RP)")
-          .setDescription("اضغط الزر بالأسفل لبدء التقديم في الخاص (DM).")
-          .setFooter({ text: Night City RP • ${PANEL_MARKER_RP} });
-
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId("start_rp_apply")
-            .setLabel("🚀 بدء تقديم RP")
-            .setStyle(ButtonStyle.Primary)
-        );
-
-        await ch.send({ embeds: [embed], components: [row] }).catch(() => {});
+        await ch.send(payload).catch(() => {});
+      } else {
+        await exists.edit(payload).catch(() => {});
       }
     }
   }
 
-  // Services Panel (tickets + creator + admin apply)
-  if (SERVICES_PANEL_CHANNEL_ID) {
+  // Services Panel
+  {
     const ch = await guild.channels.fetch(SERVICES_PANEL_CHANNEL_ID).catch(() => null);
     if (ch && ch.isTextBased()) {
       const exists = await findMarkerMessage(ch, PANEL_MARKER_SERVICES);
-
-      const embed = new EmbedBuilder()
-        .setColor(0x2b2d31)
-        .setTitle("🛠️ خدمات السيرفر")
-        .setDescription("اختر الخدمة المطلوبة من الأزرار بالأسفل.")
-        .setFooter({ text: Night City RP • ${PANEL_MARKER_SERVICES} });
-
-      const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("ticket_support").setLabel("🧰 دعم فني").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId("ticket_appeal").setLabel("🧾 استئناف").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId("ticket_report").setLabel("🚨 بلاغ").setStyle(ButtonStyle.Danger)
-      );
-
-      const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("ticket_suggest").setLabel("💡 اقتراح").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId("start_creator_apply").setLabel("🎥 تقديم صانع محتوى").setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId("start_admin_apply").setLabel("👮 تقديم إدارة").setStyle(ButtonStyle.Primary)
-      );
-
+      const payload = await buildServicesPanelPayload();
       if (!exists) {
-        await ch.send({ embeds: [embed], components: [row1, row2] }).catch(() => {});
+        await ch.send(payload).catch(() => {});
       } else {
-        // لو موجود قديم: عدّله عشان يضيف زر الإدارة بدون ما يعمل سبام رسائل
-        const hasAdminBtn = exists.components?.some(r => r.components?.some(c => c.customId === "start_admin_apply"));
-        if (!hasAdminBtn) {
-          await exists.edit({ embeds: [embed], components: [row1, row2] }).catch(() => {});
-        }
+        await exists.edit(payload).catch(() => {});
       }
     }
   }
 }
 
-// ===================== DM FLOWS =====================
+// ===================== APPLICATION FLOW =====================
 async function startDmFlow(user, guild, type) {
   const member = await guild.members.fetch(user.id).catch(() => null);
-  if (!member) return;
+  if (!member) return { ok: false, reason: "member" };
 
   if (inCooldown(user.id)) {
-    try { await user.send("⏳ انتظر قليلاً قبل بدء تقديم جديد."); } catch {}
-    return;
+    return { ok: false, reason: "cooldown" };
   }
 
   if (activeApplications.has(user.id)) {
-    try { await user.send("⚠️ لديك تقديم مفتوح بالفعل، أكمل التقديم أولاً."); } catch {}
-    return;
+    return { ok: false, reason: "active" };
   }
 
-  // RP restrictions
   if (type === "rp") {
     if (member.roles.cache.has(RP_REJECT2_ROLE_ID)) {
-      try { await user.send("⛔ تم رفض طلبك نهائيًا ولا يمكنك التقديم مرة أخرى."); } catch {}
-      return;
+      return { ok: false, reason: "final_reject" };
     }
     if (member.roles.cache.has(RP_PASS_ROLE_ID)) {
-      try { await user.send("✅ أنت مقبول بالفعل في السيرفر. لا تحتاج إعادة تقديم."); } catch {}
-      return;
+      return { ok: false, reason: "already_accepted" };
     }
   }
 
@@ -386,45 +467,33 @@ async function startDmFlow(user, guild, type) {
   });
 
   try {
-    await user.send(
+    const intro =
       type === "rp"
-        ? "✅ **بدأنا تقديم RP.**\nاكتب الإجابة سؤال بسؤال.\n⚠️ الإجابات القصيرة مثل (1) سيتم رفضها."
+        ? "✅ **بدأنا تقديم السيرفر (RP).**\nاكتب الإجابة سؤال بسؤال.\n⚠️ الإجابات القصيرة مثل (1) سيتم رفضها."
         : type === "creator"
-        ? "✅ **بدأنا تقديم صانع محتوى.**\nاكتب الإجابة سؤال بسؤال.\n⚠️ الإجابات القصيرة مثل (1) سيتم رفضها."
-        : "✅ **بدأنا تقديم الإدارة.**\nاكتب الإجابة سؤال بسؤال.\n⚠️ الإجابات القصيرة مثل (1) سيتم رفضها."
-    );
+        ? "✅ **بدأنا تقديم صانع المحتوى.**\nاكتب الإجابة سؤال بسؤال.\n⚠️ الإجابات القصيرة مثل (1) سيتم رفضها."
+        : "✅ **بدأنا تقديم الإدارة.**\nاكتب الإجابة سؤال بسؤال.\n⚠️ الإجابات القصيرة مثل (1) سيتم رفضها.";
+
+    await user.send(intro);
     await user.send(questions[0].q);
+
+    return { ok: true };
   } catch {
-    activeApplications.delete(user.id);
-    sessions.delete(user.id);
+    endSession(user.id);
+    return { ok: false, reason: "dm_closed" };
   }
 }
 
-function endSession(userId) {
-  sessions.delete(userId);
-  activeApplications.delete(userId);
-}
-
-// ===================== SUBMIT TO REVIEW =====================
 async function submitRpToReview(guild, userId, answers) {
   const ch = await guild.channels.fetch(RP_REVIEW_CHANNEL_ID).catch(() => null);
   if (!ch || !ch.isTextBased()) return;
 
-  const embed = embedReviewHeader("📩 طلب RP جديد")
-    .addFields(
-      { name: "👤 الاسم", value: safeTrim(answers.fullName, 256) || "-", inline: true },
-      { name: "🎂 العمر", value: safeTrim(answers.age, 256) || "-", inline: true },
-      { name: "📚 القوانين", value: safeTrim(answers.rules, 1024) || "-", inline: false },
-      { name: "🎮 خبرة RP", value: safeTrim(answers.experience, 1024) || "-", inline: false },
-      { name: "📝 القصة (150 كلمة+)", value: safeTrim(answers.story, 1024) || "-", inline: false },
-      { name: "🎙️ المايك", value: safeTrim(answers.mic, 256) || "-", inline: true },
-      { name: "✅ الالتزام", value: safeTrim(answers.commit, 256) || "-", inline: true }
-    )
-    .setFooter({ text: user:${userId} });
+  const embed = reviewHeader("📩 طلب انضمام جديد للسيرفر", userId)
+    .addFields(reviewFieldsFromQuestions(RP_QUESTIONS, answers));
 
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(approve_rp_${userId}).setLabel("✅ قبول").setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId(reject_rp_${userId}).setLabel("❌ رفض").setStyle(ButtonStyle.Danger)
+    new ButtonBuilder().setCustomId(`approve_rp_${userId}`).setLabel("✅ قبول").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`reject_rp_${userId}`).setLabel("❌ رفض").setStyle(ButtonStyle.Danger)
   );
 
   await ch.send({ embeds: [embed], components: [row] }).catch(() => {});
@@ -434,20 +503,12 @@ async function submitCreatorToReview(guild, userId, answers) {
   const ch = await guild.channels.fetch(CREATOR_REVIEW_CHANNEL_ID).catch(() => null);
   if (!ch || !ch.isTextBased()) return;
 
-  const embed = embedReviewHeader("🎥 طلب صانع محتوى جديد")
-    .addFields(
-      { name: "🔗 رابط القناة", value: safeTrim(answers.channelLink, 1024) || "-", inline: false },
-      { name: "👥 المتابعين", value: safeTrim(answers.followers, 256) || "-", inline: true },
-      { name: "🎥 نوع المحتوى", value: safeTrim(answers.contentType, 1024) || "-", inline: false },
-      { name: "📅 الجدول", value: safeTrim(answers.schedule, 1024) || "-", inline: false },
-      { name: "💡 السبب", value: safeTrim(answers.why, 1024) || "-", inline: false },
-      { name: "✅ الالتزام", value: safeTrim(answers.agree, 256) || "-", inline: true }
-    )
-    .setFooter({ text: user:${userId} });
+  const embed = reviewHeader("🎥 طلب صانع محتوى جديد", userId)
+    .addFields(reviewFieldsFromQuestions(CREATOR_QUESTIONS, answers));
 
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(approve_creator_${userId}).setLabel("✅ قبول").setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId(reject_creator_${userId}).setLabel("❌ رفض").setStyle(ButtonStyle.Danger)
+    new ButtonBuilder().setCustomId(`approve_creator_${userId}`).setLabel("✅ قبول").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`reject_creator_${userId}`).setLabel("❌ رفض").setStyle(ButtonStyle.Danger)
   );
 
   await ch.send({ embeds: [embed], components: [row] }).catch(() => {});
@@ -457,26 +518,12 @@ async function submitAdminToReview(guild, userId, answers) {
   const ch = await guild.channels.fetch(ADMIN_REVIEW_CHANNEL_ID).catch(() => null);
   if (!ch || !ch.isTextBased()) return;
 
-  const embed = embedReviewHeader("👮 طلب إدارة جديد")
-    .addFields(
-      { name: "👤 ديسكورد", value: safeTrim(answers.discordName, 256) || "-", inline: true },
-      { name: "🎂 العمر", value: safeTrim(answers.age, 256) || "-", inline: true },
-      { name: "🕒 التوقيت", value: safeTrim(answers.timezone, 256) || "-", inline: true },
-      { name: "⏱️ التواجد", value: safeTrim(answers.activity, 1024) || "-", inline: false },
-      { name: "🛡️ الخبرة", value: safeTrim(answers.experience, 1024) || "-", inline: false },
-      { name: "📚 القوانين", value: safeTrim(answers.rules, 1024) || "-", inline: false },
-      { name: "🤝 حل المشاكل", value: safeTrim(answers.conflict, 1024) || "-", inline: false },
-      { name: "🎮 Meta/PG", value: safeTrim(answers.metapg, 1024) || "-", inline: false },
-      { name: "🚨 البلاغات (بدون تحيز)", value: safeTrim(answers.reports, 1024) || "-", inline: false },
-      { name: "📎 الأدلة", value: safeTrim(answers.evidence, 1024) || "-", inline: false },
-      { name: "🧠 تحت الضغط", value: safeTrim(answers.pressure, 1024) || "-", inline: false },
-      { name: "✅ تعهد", value: safeTrim(answers.commit, 256) || "-", inline: true }
-    )
-    .setFooter({ text: user:${userId} });
+  const embed = reviewHeader("🛡️ طلب إدارة جديد", userId)
+    .addFields(reviewFieldsFromQuestions(ADMIN_QUESTIONS, answers));
 
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(approve_admin_${userId}).setLabel("✅ قبول").setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId(reject_admin_${userId}).setLabel("❌ رفض").setStyle(ButtonStyle.Danger)
+    new ButtonBuilder().setCustomId(`approve_admin_${userId}`).setLabel("✅ قبول").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`reject_admin_${userId}`).setLabel("❌ رفض").setStyle(ButtonStyle.Danger)
   );
 
   await ch.send({ embeds: [embed], components: [row] }).catch(() => {});
@@ -486,11 +533,12 @@ async function submitAdminToReview(guild, userId, answers) {
 async function sendTicketIntro(channel, openerUserId, kind) {
   const embed = new EmbedBuilder()
     .setColor(0x2b2d31)
-    .setTitle🎫 ${ticketLabel(kind)}`)
+    .setTitle(`🎫 ${ticketLabel(kind)}`)
     .setDescription(
-     أهلاً <@${openerUserId}> 👋\n` +
-      اكتب مشكلتك/طلبك هنا بالتفصيل، وسيتم الرد عليك من الإدارة.\n\n +
-     🔒 للإغلاق: الإدارة تضغط زر **إغلاق التذكرة** وتكتب السبب.`
+      `أهلاً <@${openerUserId}> 👋\n` +
+      `اكتب طلبك أو مشكلتك هنا بالتفصيل.\n` +
+      `الإدارة سترد عليك هنا.\n\n` +
+      `🔒 للإغلاق: الإدارة تضغط زر **إغلاق التذكرة** وتكتب السبب.`
     )
     .setFooter({ text: "Night City RP • Tickets" })
     .setTimestamp();
@@ -513,7 +561,7 @@ async function createTicket(interaction, kind) {
   const categoryId = ticketCategory(kind);
   const category = await guild.channels.fetch(categoryId).catch(() => null);
   if (!category || category.type !== ChannelType.GuildCategory) {
-    return interaction.reply({ content: "❌ كاتيجوري التذاكر غير صحيح (ID غلط).", ephemeral: true });
+    return replyEphemeral(interaction, "❌ كاتيجوري التذاكر غير صحيح.");
   }
 
   const existing = guild.channels.cache.find(
@@ -522,11 +570,12 @@ async function createTicket(interaction, kind) {
       c.type === ChannelType.GuildText &&
       c.permissionOverwrites?.cache?.has(interaction.user.id)
   );
+
   if (existing) {
-    return interaction.reply({ content: ⚠️ لديك تذكرة مفتوحة بالفعل: ${existing}, ephemeral: true });
+    return replyEphemeral(interaction, `⚠️ لديك تذكرة مفتوحة بالفعل: ${existing}`);
   }
 
-  const base = ${kind}-${interaction.user.username}.toLowerCase().replace(/[^a-z0-9\-]/g, "");
+  const base = `${kind}-${interaction.user.username}`.toLowerCase().replace(/[^a-z0-9\-]/g, "");
   const name = base.length > 80 ? base.slice(0, 80) : base;
 
   const channel = await guild.channels.create({
@@ -556,17 +605,22 @@ async function createTicket(interaction, kind) {
     ],
   }).catch(() => null);
 
-  if (!channel) return interaction.reply({ content: "❌ فشل إنشاء التذكرة.", ephemeral: true });
+  if (!channel) return replyEphemeral(interaction, "❌ فشل إنشاء التذكرة.");
 
   await sendTicketIntro(channel, interaction.user.id, kind);
-  return interaction.reply({ content: ✅ تم إنشاء تذكرتك: ${channel}, ephemeral: true });
+  return replyEphemeral(interaction, `✅ تم إنشاء تذكرتك: ${channel}`);
 }
 
 // ===================== MODALS =====================
 async function openRejectModal(interaction, type, userId) {
+  const title =
+    type === "rp" ? "سبب رفض تقديم السيرفر" :
+    type === "creator" ? "سبب رفض صانع المحتوى" :
+    "سبب رفض الإدارة";
+
   const modal = new ModalBuilder()
-    .setCustomId(modal_reject_${type}_${userId})
-    .setTitle("سبب الرفض");
+    .setCustomId(`modal_reject_${type}_${userId}`)
+    .setTitle(title);
 
   const input = new TextInputBuilder()
     .setCustomId("reason")
@@ -585,7 +639,7 @@ async function openCloseTicketModal(interaction) {
 
   const input = new TextInputBuilder()
     .setCustomId("reason")
-    .setLabel("سبب الإغلاق")
+    .setLabel("اكتب سبب الإغلاق")
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true);
 
@@ -593,94 +647,119 @@ async function openCloseTicketModal(interaction) {
   await interaction.showModal(modal);
 }
 
-// ===================== EVENTS =====================
-client.once("ready", async () => {
-  console.log(✅ Logged in as ${client.user.tag});
+// ===================== READY =====================
+client.once("clientReady", async () => {
+  console.log(`✅ Logged in as ${client.user.tag}`);
   for (const [, guild] of client.guilds.cache) {
     await ensurePanels(guild).catch(() => {});
   }
 });
 
-// Buttons + Modals
+// ===================== RESTORE PANELS IF DELETED =====================
+client.on("messageDelete", async (message) => {
+  try {
+    if (!message.guildId) return;
+    const footer = message.embeds?.[0]?.footer?.text || "";
+    if (!footer.includes(PANEL_MARKER_RP) && !footer.includes(PANEL_MARKER_SERVICES)) return;
+
+    const guild = await client.guilds.fetch(message.guildId).catch(() => null);
+    if (!guild) return;
+
+    await ensurePanels(guild).catch(() => {});
+  } catch {}
+});
+
+// ===================== INTERACTIONS =====================
 client.on("interactionCreate", async (interaction) => {
   try {
     // ================= BUTTONS =================
     if (interaction.isButton()) {
       const { customId } = interaction;
 
-      // Start RP Apply
+      // ===== START RP APPLY =====
       if (customId === "start_rp_apply") {
         const guild = interaction.guild;
-        if (!guild) return interaction.reply({ content: "❌ هذا الزر يعمل داخل السيرفر فقط.", ephemeral: true });
+        if (!guild) return replyEphemeral(interaction, "❌ هذا الزر يعمل داخل السيرفر فقط.");
 
-        try {
-          await startDmFlow(interaction.user, guild, "rp");
-          return interaction.reply({ content: "✅ تم إرسال أسئلة التقديم في الخاص (DM).", ephemeral: true });
-        } catch {
-          return interaction.reply({
-            content: "❌ لا أستطيع إرسال DM لك. افتح الخاص (Allow DMs) ثم جرّب مرة أخرى.",
-            ephemeral: true,
-          });
+        const result = await startDmFlow(interaction.user, guild, "rp");
+
+        if (!result.ok) {
+          if (result.reason === "final_reject") {
+            return replyEphemeral(interaction, "⛔ تم رفض طلبك نهائيًا ولا يمكنك التقديم مرة أخرى.");
+          }
+          if (result.reason === "already_accepted") {
+            return replyEphemeral(interaction, "✅ أنت بالفعل مقبول في السيرفر.");
+          }
+          if (result.reason === "active") {
+            return replyEphemeral(interaction, "⚠️ لديك تقديم مفتوح بالفعل، أكمله أولًا.");
+          }
+          if (result.reason === "cooldown") {
+            return replyEphemeral(interaction, "⏳ انتظر قليلًا قبل بدء تقديم جديد.");
+          }
+          if (result.reason === "dm_closed") {
+            return replyEphemeral(interaction, "❌ لا أستطيع إرسال DM لك. افتح الخاص ثم جرّب مرة أخرى.");
+          }
+          return replyEphemeral(interaction, "❌ حدث خطأ أثناء بدء التقديم.");
         }
+
+        return replyEphemeral(interaction, "✅ تم إرسال أسئلة تقديم السيرفر في الخاص (DM).");
       }
 
-      // Start Creator Apply
+      // ===== START CREATOR APPLY =====
       if (customId === "start_creator_apply") {
         const guild = interaction.guild;
-        if (!guild) return interaction.reply({ content: "❌ هذا الزر يعمل داخل السيرفر فقط.", ephemeral: true });
+        if (!guild) return replyEphemeral(interaction, "❌ هذا الزر يعمل داخل السيرفر فقط.");
 
-        try {
-          await startDmFlow(interaction.user, guild, "creator");
-          return interaction.reply({ content: "✅ تم إرسال أسئلة تقديم صانع محتوى في الخاص (DM).", ephemeral: true });
-        } catch {
-          return interaction.reply({
-            content: "❌ لا أستطيع إرسال DM لك. افتح الخاص (Allow DMs) ثم جرّب مرة أخرى.",
-            ephemeral: true,
-          });
+        const result = await startDmFlow(interaction.user, guild, "creator");
+        if (!result.ok) {
+          if (result.reason === "active") return replyEphemeral(interaction, "⚠️ لديك تقديم مفتوح بالفعل.");
+          if (result.reason === "cooldown") return replyEphemeral(interaction, "⏳ انتظر قليلًا قبل التقديم من جديد.");
+          if (result.reason === "dm_closed") return replyEphemeral(interaction, "❌ افتح الخاص (DM) ثم جرّب مرة أخرى.");
+          return replyEphemeral(interaction, "❌ حدث خطأ أثناء بدء التقديم.");
         }
+
+        return replyEphemeral(interaction, "✅ تم إرسال أسئلة تقديم صانع المحتوى في الخاص (DM).");
       }
 
-      // ✅ NEW: Start Admin Apply
+      // ===== START ADMIN APPLY =====
       if (customId === "start_admin_apply") {
         const guild = interaction.guild;
-        if (!guild) return interaction.reply({ content: "❌ هذا الزر يعمل داخل السيرفر فقط.", ephemeral: true });
+        if (!guild) return replyEphemeral(interaction, "❌ هذا الزر يعمل داخل السيرفر فقط.");
 
-        try {
-          await startDmFlow(interaction.user, guild, "admin");
-          return interaction.reply({ content: "✅ تم إرسال أسئلة تقديم الإدارة في الخاص (DM).", ephemeral: true });
-        } catch {
-          return interaction.reply({
-            content: "❌ لا أستطيع إرسال DM لك. افتح الخاص (Allow DMs) ثم جرّب مرة أخرى.",
-            ephemeral: true,
-          });
+        const result = await startDmFlow(interaction.user, guild, "admin");
+        if (!result.ok) {
+          if (result.reason === "active") return replyEphemeral(interaction, "⚠️ لديك تقديم مفتوح بالفعل.");
+          if (result.reason === "cooldown") return replyEphemeral(interaction, "⏳ انتظر قليلًا قبل التقديم من جديد.");
+          if (result.reason === "dm_closed") return replyEphemeral(interaction, "❌ افتح الخاص (DM) ثم جرّب مرة أخرى.");
+          return replyEphemeral(interaction, "❌ حدث خطأ أثناء بدء التقديم.");
         }
+
+        return replyEphemeral(interaction, "✅ تم إرسال أسئلة تقديم الإدارة في الخاص (DM).");
       }
 
-      // Tickets
+      // ===== TICKETS =====
       if (customId === "ticket_support") return createTicket(interaction, "support");
-      if (customId === "ticket_appeal")  return createTicket(interaction, "appeal");
-      if (customId === "ticket_report")  return createTicket(interaction, "report");
+      if (customId === "ticket_appeal") return createTicket(interaction, "appeal");
+      if (customId === "ticket_report") return createTicket(interaction, "report");
       if (customId === "ticket_suggest") return createTicket(interaction, "suggest");
 
-      // Close ticket button (admin only)
+      // ===== CLOSE TICKET =====
       if (customId === "ticket_close") {
         const member = interaction.member;
         if (!member || !isAdmin(member)) {
-          return interaction.reply({ content: "❌ زر الإغلاق للإدارة فقط.", ephemeral: true });
+          return replyEphemeral(interaction, "❌ زر الإغلاق للإدارة فقط.");
         }
         return openCloseTicketModal(interaction);
       }
 
-      // Approve / Reject RP
+      // ===== RP APPROVE / REJECT =====
       if (customId.startsWith("approve_rp_") || customId.startsWith("reject_rp_")) {
         const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return interaction.reply({ content: "❌ ليس لديك صلاحية.", ephemeral: true });
-        }
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ ليس لديك صلاحية.");
 
         const userId = customId.replace("approve_rp_", "").replace("reject_rp_", "");
         const target = await interaction.guild.members.fetch(userId).catch(() => null);
-        if (!target) return interaction.reply({ content: "❌ العضو غير موجود.", ephemeral: true });
+        if (!target) return replyEphemeral(interaction, "❌ العضو غير موجود.");
 
         if (customId.startsWith("approve_rp_")) {
           await target.roles.remove(RP_REJECT1_ROLE_ID).catch(() => {});
@@ -688,58 +767,69 @@ client.on("interactionCreate", async (interaction) => {
           await target.roles.add(RP_PASS_ROLE_ID).catch(() => {});
 
           try {
-            const { embed, row } = embedAcceptRP(interaction.guild.id);
+            const { embed, row } = rpAcceptEmbed(interaction.guild.id);
             await target.send({ embeds: [embed], components: [row] });
           } catch {}
 
           const newRows = disableAllComponents(interaction.message);
-          await interaction.update({ content: "✅ تم القبول.", components: newRows }).catch(() => {});
+          await interaction.update({
+            content: `✅ تم قبول تقديم السيرفر بواسطة ${interaction.user}.`,
+            components: newRows,
+          }).catch(() => {});
           return;
         }
 
         return openRejectModal(interaction, "rp", userId);
       }
 
-      // Approve / Reject Creator
+      // ===== CREATOR APPROVE / REJECT =====
       if (customId.startsWith("approve_creator_") || customId.startsWith("reject_creator_")) {
         const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return interaction.reply({ content: "❌ ليس لديك صلاحية.", ephemeral: true });
-        }
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ ليس لديك صلاحية.");
 
         const userId = customId.replace("approve_creator_", "").replace("reject_creator_", "");
         const target = await interaction.guild.members.fetch(userId).catch(() => null);
-        if (!target) return interaction.reply({ content: "❌ العضو غير موجود.", ephemeral: true });
+        if (!target) return replyEphemeral(interaction, "❌ العضو غير موجود.");
 
         if (customId.startsWith("approve_creator_")) {
           await target.roles.add(CREATOR_ROLE_ID).catch(() => {});
-          try { await target.send({ embeds: [embedAcceptCreator()] }); } catch {}
+
+          try {
+            await target.send({ embeds: [creatorAcceptEmbed()] });
+          } catch {}
 
           const newRows = disableAllComponents(interaction.message);
-          await interaction.update({ content: "✅ تم قبول صانع المحتوى.", components: newRows }).catch(() => {});
+          await interaction.update({
+            content: `✅ تم قبول صانع المحتوى بواسطة ${interaction.user}.`,
+            components: newRows,
+          }).catch(() => {});
           return;
         }
 
         return openRejectModal(interaction, "creator", userId);
       }
 
-      // ✅ NEW: Approve / Reject Admin
+      // ===== ADMIN APPROVE / REJECT =====
       if (customId.startsWith("approve_admin_") || customId.startsWith("reject_admin_")) {
         const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return interaction.reply({ content: "❌ ليس لديك صلاحية.", ephemeral: true });
-        }
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ ليس لديك صلاحية.");
 
         const userId = customId.replace("approve_admin_", "").replace("reject_admin_", "");
         const target = await interaction.guild.members.fetch(userId).catch(() => null);
-        if (!target) return interaction.reply({ content: "❌ العضو غير موجود.", ephemeral: true });
+        if (!target) return replyEphemeral(interaction, "❌ العضو غير موجود.");
 
         if (customId.startsWith("approve_admin_")) {
           await target.roles.add(ADMIN_ACCEPT_ROLE_ID).catch(() => {});
-          try { await target.send({ embeds: [embedAcceptAdmin()] }); } catch {}
+
+          try {
+            await target.send({ embeds: [adminAcceptEmbed()] });
+          } catch {}
 
           const newRows = disableAllComponents(interaction.message);
-          await interaction.update({ content: "✅ تم قبول الإدارة.", components: newRows }).catch(() => {});
+          await interaction.update({
+            content: `✅ تم قبول الإدارة بواسطة ${interaction.user}.`,
+            components: newRows,
+          }).catch(() => {});
           return;
         }
 
@@ -747,11 +837,11 @@ client.on("interactionCreate", async (interaction) => {
       }
     }
 
-    // ================= MODALS =================
+    // ================= MODAL SUBMITS =================
     if (interaction.isModalSubmit()) {
       const id = interaction.customId;
 
-      // Reject modal (rp/creator/admin)
+      // ===== REJECT MODAL =====
       if (id.startsWith("modal_reject_")) {
         const parts = id.split("_");
         const type = parts[2];
@@ -761,51 +851,70 @@ client.on("interactionCreate", async (interaction) => {
         const target = await interaction.guild.members.fetch(userId).catch(() => null);
 
         if (type === "rp") {
+          let finalReject = false;
+
           if (target) {
             if (!target.roles.cache.has(RP_REJECT1_ROLE_ID)) {
               await target.roles.add(RP_REJECT1_ROLE_ID).catch(() => {});
             } else {
               await target.roles.remove(RP_REJECT1_ROLE_ID).catch(() => {});
               await target.roles.add(RP_REJECT2_ROLE_ID).catch(() => {});
+              finalReject = true;
             }
-            try { await target.send({ embeds: [embedReject(reason, "❌ تم رفض طلبك")] }); } catch {}
+
+            try {
+              await target.send({ embeds: [rpRejectEmbed(reason, finalReject)] });
+            } catch {}
           }
 
           const newRows = disableAllComponents(interaction.message);
-          await interaction.update({ content: ❌ تم الرفض بواسطة ${interaction.user}., components: newRows }).catch(() => {});
+          await interaction.update({
+            content: `❌ تم رفض تقديم السيرفر بواسطة ${interaction.user}.`,
+            components: newRows,
+          }).catch(() => {});
           return;
         }
 
         if (type === "creator") {
           if (target) {
-            try { await target.send({ embeds: [embedReject(reason, "❌ تم رفض طلب صانع المحتوى")] }); } catch {}
+            try {
+              await target.send({ embeds: [creatorRejectEmbed(reason)] });
+            } catch {}
           }
+
           const newRows = disableAllComponents(interaction.message);
-          await interaction.update({ content: ❌ تم رفض صانع المحتوى بواسطة ${interaction.user}., components: newRows }).catch(() => {});
+          await interaction.update({
+            content: `❌ تم رفض صانع المحتوى بواسطة ${interaction.user}.`,
+            components: newRows,
+          }).catch(() => {});
           return;
         }
 
         if (type === "admin") {
           if (target) {
-            try { await target.send({ embeds: [embedReject(reason, "❌ تم رفض طلب الإدارة")] }); } catch {}
+            try {
+              await target.send({ embeds: [adminRejectEmbed(reason)] });
+            } catch {}
           }
+
           const newRows = disableAllComponents(interaction.message);
-          await interaction.update({ content: ❌ تم رفض الإدارة بواسطة ${interaction.user}., components: newRows }).catch(() => {});
+          await interaction.update({
+            content: `❌ تم رفض طلب الإدارة بواسطة ${interaction.user}.`,
+            components: newRows,
+          }).catch(() => {});
           return;
         }
       }
 
-      // Ticket close modal
+      // ===== CLOSE TICKET MODAL =====
       if (id === "modal_ticket_close") {
         const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return interaction.reply({ content: "❌ ليس لديك صلاحية.", ephemeral: true });
-        }
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ ليس لديك صلاحية.");
 
         const reason = interaction.fields.getTextInputValue("reason");
 
         const overwrites = interaction.channel.permissionOverwrites.cache;
-        const ownerOverwrite = overwrites.find((o) => o.type === 1); // Member overwrite
+        const ownerOverwrite = overwrites.find((o) => o.type === 1); // member overwrite
         const ownerId = ownerOverwrite?.id;
 
         const transcript = await buildTranscript(interaction.channel, 100);
@@ -819,30 +928,38 @@ client.on("interactionCreate", async (interaction) => {
                   new EmbedBuilder()
                     .setColor(0xff2d2d)
                     .setTitle("🔒 تم إغلاق التذكرة")
-                    .setDescription(**السبب:**\n${safeTrim(reason, 1500)})
+                    .setDescription(`**سبب الإغلاق:**\n${safeTrim(reason, 1500)}`)
                     .setFooter({ text: "Night City RP • Tickets" })
                     .setTimestamp(),
                 ],
               });
+
               await user.send("📄 **Transcript (آخر 100 رسالة):**\n```txt\n" + transcript + "\n```");
             } catch {}
           }
         }
 
-        await interaction.reply({ content: "✅ سيتم إغلاق التذكرة الآن.", ephemeral: true }).catch(() => {});
+        await interaction.reply({
+          content: "✅ سيتم إغلاق التذكرة الآن.",
+          flags: MessageFlags.Ephemeral,
+        }).catch(() => {});
+
         setTimeout(() => interaction.channel.delete().catch(() => {}), 1500);
         return;
       }
     }
   } catch (e) {
     console.log("interaction error:", e?.message || e);
-    if (interaction.isRepliable() && !interaction.replied) {
-      interaction.reply({ content: "❌ حصل خطأ. راجع اللوج.", ephemeral: true }).catch(() => {});
+    if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
+      interaction.reply({
+        content: "❌ حصل خطأ. راجع اللوج.",
+        flags: MessageFlags.Ephemeral,
+      }).catch(() => {});
     }
   }
 });
 
-// ===================== DM handler (Q/A) =====================
+// ===================== DM HANDLER =====================
 client.on("messageCreate", async (msg) => {
   try {
     if (msg.author.bot) return;
@@ -868,16 +985,14 @@ client.on("messageCreate", async (msg) => {
       return;
     }
 
-    // Quality filter
     if (tooShortAnswer(msg.content)) {
-      await msg.author.send("❌ الإجابة قصيرة/غير مفهومة. اكتب إجابة واضحة من فضلك.");
+      await msg.author.send("❌ الإجابة قصيرة أو غير واضحة. اكتب إجابة مفهومة.");
       return;
     }
 
-    // Story check (RP only)
     if (session.type === "rp" && current.key === "story") {
       if (wordCount(msg.content) < 150) {
-        await msg.author.send("❌ القصة لازم تكون *150 كلمة على الأقل*. اكتب قصة أطول من فضلك.");
+        await msg.author.send("❌ قصة الشخصية يجب أن تكون **150 كلمة على الأقل**.");
         return;
       }
     }
@@ -908,17 +1023,8 @@ client.on("messageCreate", async (msg) => {
 });
 
 // ===================== START =====================
-require('dotenv').config();
-
-const TOKEN = process.env.TOKEN;
-
 if (!TOKEN) {
-  console.log("❌ TOKEN not found. Put it in .env or Railway Variables.");
-  process.exit(1);
-}
-
-client.login(TOKEN);
-
-
-
-
+  console.log("❌ Missing TOKEN env var. Put TOKEN in Railway Variables.");
+} else {
+  client.login(TOKEN).catch((e) => console.log("Login error:", e?.message || e));
+}    
