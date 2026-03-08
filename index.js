@@ -1034,10 +1034,13 @@ client.on("guildMemberAdd", async (member) => {
 const embed = new EmbedBuilder()
  .setColor(0x2b6cff)
  .setTitle("Welcome To Night City RP")
-.setDescription(`مرحباً <@${member.id}>`)
+.setDescription(`
+مرحباً <@${member.id}>
 
 أهلاً بك في Night City Roleplay
-يرجى قراءة القوانين ثم التقديم على الوايت ليست.)
+
+يرجى قراءة القوانين ثم التقديم على الوايت ليست
+`)
  .setThumbnail(member.user.displayAvatarURL())
  .setFooter({ text: "Night City RP" })
  .setTimestamp();
@@ -1068,6 +1071,7 @@ if (!TOKEN) {
 } else {
   client.login(TOKEN).catch((e) => console.log("Login error:", e?.message || e));
 }    
+
 
 
 
