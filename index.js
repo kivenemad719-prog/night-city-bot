@@ -1034,7 +1034,7 @@ client.on("guildMemberAdd", async (member) => {
 const embed = new EmbedBuilder()
  .setColor(0x2b6cff)
  .setTitle("Welcome To Night City RP")
-.setDescription(مرحباً ${member}
+.setDescription('مرحباً ${member}
 
 أهلاً بك في Night City Roleplay
 يرجى قراءة القوانين ثم التقديم على الوايت ليست.)
@@ -1045,12 +1045,12 @@ const embed = new EmbedBuilder()
  const row = new ActionRowBuilder().addComponents(
 
   new ButtonBuilder()
-   .setLabel(" قوانين السيرفر")
+   .setLabel("قوانين السيرفر")
    .setStyle(ButtonStyle.Link)
    .setURL(https://discord.com/channels/${member.guild.id}/${RULES_CHANNEL_ID})
 
   new ButtonBuilder()
-   .setLabel(" التقديم على الوايت ليست")
+   .setLabel("التقديم على الوايت ليست")
    .setStyle(ButtonStyle.Link)
    .setURL(https://discord.com/channels/${member.guild.id}/${RULES_CHANNEL_ID})
  );
@@ -1068,6 +1068,7 @@ if (!TOKEN) {
 } else {
   client.login(TOKEN).catch((e) => console.log("Login error:", e?.message || e));
 }    
+
 
 
 
