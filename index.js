@@ -1034,7 +1034,7 @@ client.on("guildMemberAdd", async (member) => {
 const embed = new EmbedBuilder()
  .setColor(0x2b6cff)
  .setTitle("Welcome To Night City RP")
- .setDescription(مرحباً ${member}
+ .setDescription('مرحباً ${member}
 
 أهلاً بك في **Night City Roleplay**
 
@@ -1069,6 +1069,7 @@ if (!TOKEN) {
 } else {
   client.login(TOKEN).catch((e) => console.log("Login error:", e?.message || e));
 }    
+
 
 
 
