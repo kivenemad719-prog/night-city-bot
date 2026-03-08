@@ -1023,22 +1023,12 @@ client.on("messageCreate", async (msg) => {
 });
 
 
-})
 // ===================== START =====================
 if (!TOKEN) {
   console.log("❌ Missing TOKEN env var. Put TOKEN in Railway Variables.");
 } else {
   client.login(TOKEN).catch((e) => console.log("Login error:", e?.message || e));
 }    
-
-
-
-
-
-
-
-
-
 
 
 
