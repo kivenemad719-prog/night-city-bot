@@ -1031,17 +1031,17 @@ client.on("guildMemberAdd", async (member) => {
  const channel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
  if (!channel) return;
 
- const embed = new EmbedBuilder()
-  .setColor(0x2b6cff)
-  .setTitle(" Welcome To Night City RP")
-  .setDescription(مرحباً ${member}
+const embed = new EmbedBuilder()
+ .setColor(0x2b6cff)
+ .setTitle("Welcome To Night City RP")
+ .setDescription(مرحباً ${member}
 
 أهلاً بك في **Night City Roleplay**
 
-يرجى قراءة القوانين أولاً ثم التقديم على الوايت ليست.)
-  .setThumbnail(member.user.displayAvatarURL())
-  .setFooter({ text: "Night City RP" })
-  .setTimestamp();
+يرجى قراءة القوانين ثم التقديم على الوايت ليست.)
+ .setThumbnail(member.user.displayAvatarURL())
+ .setFooter({ text: "Night City RP" })
+ .setTimestamp();
 
  const row = new ActionRowBuilder().addComponents(
 
@@ -1069,6 +1069,7 @@ if (!TOKEN) {
 } else {
   client.login(TOKEN).catch((e) => console.log("Login error:", e?.message || e));
 }    
+
 
 
 
