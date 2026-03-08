@@ -51,6 +51,10 @@ const CREATOR_ROLE_ID = "1477845260095979552";
 const RP_PASS_ROLE_ID = "1477569088988512266";
 const RP_REJECT1_ROLE_ID = "1477568923208519681";
 const RP_REJECT2_ROLE_ID = "1477569051185119332";
+// Welcome system
+const WELCOME_CHANNEL_ID = "1465609782680621254"
+const RULES_CHANNEL_ID = "1465786939755200687"
+const APPLY_CHANNEL_ID = "1465803291714785481"
 
 // رول الإدارة عند القبول
 // لو الرول ما اتضافش، راجع الـ ID ده
@@ -1022,11 +1026,49 @@ client.on("messageCreate", async (msg) => {
   }
 });
 
+client.on("guildMemberAdd", async (member) => {
+
+ const channel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
+ if (!channel) return;
+
+ const embed = new EmbedBuilder()
+  .setColor(0x2b6cff)
+  .setTitle(" Welcome To Night City RP")
+  .setDescription(مرحباً ${member}
+
+أهلاً بك في **Night City Roleplay**
+
+يرجى قراءة القوانين أولاً ثم التقديم على الوايت ليست.)
+  .setThumbnail(member.user.displayAvatarURL())
+  .setFooter({ text: "Night City RP" })
+  .setTimestamp();
+
+ const row = new ActionRowBuilder().addComponents(
+
+  new ButtonBuilder()
+   .setLabel(" قوانين السيرفر")
+   .setStyle(ButtonStyle.Link)
+   .setURL(https://discord.com/channels/${member.guild.id}/${RULES_CHANNEL_ID})
+
+  new ButtonBuilder()
+   .setLabel(" التقديم على الوايت ليست")
+   .setStyle(ButtonStyle.Link)
+   .setURL(https://discord.com/channels/${member.guild.id}/${RULES_CHANNEL_ID})
+ );
+
+ channel.send({
+  content: ${member},
+  embeds: [embed],
+  components: [row]
+ });
+
+})
 // ===================== START =====================
 if (!TOKEN) {
   console.log("❌ Missing TOKEN env var. Put TOKEN in Railway Variables.");
 } else {
   client.login(TOKEN).catch((e) => console.log("Login error:", e?.message || e));
 }    
+
 
 
