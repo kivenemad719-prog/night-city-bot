@@ -1050,12 +1050,12 @@ const embed = new EmbedBuilder()
   new ButtonBuilder()
    .setLabel("قوانين السيرفر")
    .setStyle(ButtonStyle.Link)
-   .setURL(https://discord.com/channels/${member.guild.id}/${RULES_CHANNEL_ID})
+   .setURL(`https://discord.com/channels/${member.guild.id}/${RULES_CHANNEL_ID}`)
 
   new ButtonBuilder()
    .setLabel("التقديم على الوايت ليست")
    .setStyle(ButtonStyle.Link)
-   .setURL(https://discord.com/channels/${member.guild.id}/${RULES_CHANNEL_ID})
+   .setURL(`https://discord.com/channels/${member.guild.id}/${RULES_CHANNEL_ID}`)
  );
 
  channel.send({
@@ -1071,6 +1071,7 @@ if (!TOKEN) {
 } else {
   client.login(TOKEN).catch((e) => console.log("Login error:", e?.message || e));
 }    
+
 
 
 
