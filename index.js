@@ -35,7 +35,7 @@ const SERVICES_PANEL_CHANNEL_ID = "1465757986684403828";
 
 // ================= REVIEW CHANNEL IDS =================
 const RP_REVIEW_CHANNEL_ID = "1477562619001831445";
-const CREATOR_REVIEW_CHANNEL_ID = "1480364409074356354";
+const CREATOR_REVIEW_CHANNEL_ID = "1477777545767420116";
 const ADMIN_REVIEW_CHANNEL_ID = "1479216695938650263";
 
 // ================= VOICE INTERVIEW ROOM =================
@@ -1252,4 +1252,5 @@ if (!TOKEN) {
 } else {
   client.login(TOKEN).catch((e) => console.log("Login error:", e?.message || e));
 }
+
 
