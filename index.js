@@ -44,7 +44,7 @@ const VOICE_ROOM_ID = "1465752669564964935";
 // ================= TICKET CATEGORIES =================
 const SUPPORT_CATEGORY_ID = "1473850568811221194";
 const APPEAL_CATEGORY_ID = "1477765907496308897";
-const REPORT_CATEGORY_ID = "1477765907496308897";
+const REPORT_CATEGORY_ID = "1473843823607021579";
 const SUGGEST_CATEGORY_ID = "1477766632817426675";
 
 // ================= ADMIN ROLES (3) =================
@@ -1252,5 +1252,6 @@ if (!TOKEN) {
 } else {
   client.login(TOKEN).catch((e) => console.log("Login error:", e?.message || e));
 }
+
 
 
