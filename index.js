@@ -39,8 +39,8 @@ const ADMIN_REVIEW_CHANNEL_ID = "1479216695938650263";
 const RP_APPOINTMENTS_CHANNEL_ID = "1465755601937367130";
 
 // ================= RULE LINKS =================
-const DISCORD_RULES_LINK = "https://docs.google.com/document/d/1OVjgthyRPQ63sD49ezOjQ8pf-Q8soL5BJdZFFX-UmnM/edit?pli=1&tab=t.0";
-const SERVER_RULES_LINK = "https://docs.google.com/document/d/1uCZBWJd5j4JGyacLFM-823YsTAnhSq88R_OfSaZ1Uv8/edit?tab=t.i85m88kkl7vw";
+const DISCORD_RULES_LINK = "https://docs.google.com/document/d/1OVjgthyRPQ63sD49ezOjQ8pf-Q8soL5BJdZFFX-UmnM/edit?usp=sharing";
+const SERVER_RULES_LINK = "https://docs.google.com/document/d/1uCZBWJd5j4JGyacLFM-823YsTAnhSq88R_OfSaZ1Uv8/edit?usp=sharing";
 
 // ================= TICKET CATEGORIES =================
 const SUPPORT_CATEGORY_ID = "1473850568811221194";
