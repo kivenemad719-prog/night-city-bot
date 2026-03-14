@@ -1043,14 +1043,24 @@ const {customId} = interaction;
 // ===== RP APPLY =====
 
 if(customId === "start_rp_apply"){
-
 if(!settings.rpApply)
 return replyEphemeral(interaction,"⚠️ التقديم مغلق حالياً");
 
-return replyEphemeral(interaction,"📩 تم إرسال نموذج التقديم في الخاص");
+try{
+const user = await client.users.fetch(interaction.user.id);
 
+await user.send("📝 بدأ التقديم على السيرفر، أجب على الأسئلة التالية:");
+
+for(const q of RP_QUESTIONS){
+await user.send(q.q);
 }
 
+}catch{
+return replyEphemeral(interaction,"❌ لا أستطيع إرسال رسالة خاصة لك. افتح الـDM.");
+}
+
+return replyEphemeral(interaction,"📩 تم إرسال الأسئلة في الخاص");
+}
 
 // ===== CREATOR APPLY =====
 
