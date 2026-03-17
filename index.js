@@ -71,7 +71,7 @@ const PANEL_MARKER_CONTROL = "PANEL_CONTROL_v3";
 // ======================================================
 const RP_QUESTIONS = [
   { key: "fullName", q: "📌 ما الاسم الكامل للشخصية؟" },
-  { key: "age", q: "🎂 كم عمر الشخصية؟" },
+  { key: "age", q: "🎂 كم عمرك؟" },
   { key: "country", q: "🌍 من أي دولة / مدينة؟" },
   { key: "playHours", q: "⏱️ كم ساعة تتواجد يوميًا؟" },
   { key: "experience", q: "🎮 هل لديك خبرة RP؟ اشرح باختصار." },
@@ -1206,19 +1206,89 @@ client.on("messageCreate", async (msg) => {
     }
 
     const answer = safeTrim(msg.content, 2000);
+    // ================= AGE CHECK =================
+if (session.type === "rp" && current.key === "age") {
+
+  const ageNumber = parseInt(answer.match(/\d+/)?.[0]);
+
+  if (!ageNumber) {
+    await msg.author.send("❌ يرجى كتابة العمر بشكل صحيح.");
+    return;
+  }
+
+  if (ageNumber < 16) {
+    await msg.author.send(
+      "❌ تم رفض التقديم.\n\nسبب الرفض:\n• السن أقل من الحد المطلوب (16)."
+    );
+
+    endSession(msg.author.id);
+    return;
+  }
+}
+
+// ================= LOW QUALITY ANSWERS =================
+const badAnswers = [
+  "idk",
+  "لا اعرف",
+  "ما اعرف",
+  "unknown",
+  "none",
+];
+
+if (badAnswers.includes(answer.toLowerCase())) {
+  await msg.author.send("❌ الإجابة غير واضحة. يرجى كتابة شرح بسيط.");
+  return;
+}
 
     if (tooShortAnswer(answer)) {
       await msg.author.send("❌ الإجابة قصيرة جدًا أو غير واضحة. فضلاً أعد كتابة إجابة مفهومة.");
       return;
     }
 
-    if (session.type === "rp" && current.key === "story") {
-      if (wordCount(answer) < 150) {
-        await msg.author.send("❌ لم تكمل الحد الأدنى المطلوب. قصة الشخصية يجب أن تكون 150 كلمة على الأقل.");
-        return;
-      }
-    }
+if (session.type === "rp" && current.key === "story") {
 
+  let rejectReasons = [];
+
+  // شرط عدد الكلمات
+  if (wordCount(answer) < 150) {
+    rejectReasons.push("القصة أقل من 150 كلمة");
+  }
+
+  // كشف AI (محسن)
+  const aiPatterns = [
+    "في عالم",
+    "تدور أحداث",
+    "منذ صغره",
+    "كبر وهو",
+    "في أحد الأيام",
+    "لطالما كان",
+    "بدأت القصة",
+    "كان يعيش",
+    "في مدينة",
+  ];
+
+  let aiScore = 0;
+  for (const pattern of aiPatterns) {
+    if (answer.includes(pattern)) {
+      aiScore++;
+    }
+  }
+
+  if (aiScore >= 4) {
+    rejectReasons.push("القصة تبدو مولدة بمساعدة الذكاء الاصطناعي");
+  }
+
+  // لو في أسباب رفض
+  if (rejectReasons.length > 0) {
+    await msg.author.send(
+      "❌ تم رفض التقديم.\n\nسبب الرفض:\n• " +
+      rejectReasons.join("\n• ")
+    );
+
+    endSession(msg.author.id);
+    return;
+  }
+}
     session.answers[current.key] = answer;
     session.step += 1;
     sessions.set(msg.author.id, session);
