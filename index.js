@@ -22,12 +22,15 @@ const {
 const TOKEN = process.env.TOKEN;
 
 // ================= CHANNEL IDS =================
-const WELCOME_CHANNEL_ID = "1465609782680621254";
-const RULES_CHANNEL_ID = "1465786939755200687";
-const FEEDBACK_CHANNEL_ID = "1480098551248715896";
-const CONTROL_PANEL_CHANNEL_ID = "1480098674578034698";
+const WELCOME_CHANNEL_ID = "1465609782680621254"; // روم الترحيب فقط
+const RULES_CHANNEL_ID = "1465786939755200687"; // روم القوانين
+const FEEDBACK_CHANNEL_ID = "1480098551248715896"; // روم التقييمات
+const CONTROL_PANEL_CHANNEL_ID = "1480098674578034698"; // روم لوحة التحكم
 
+// روم بانل تقديم السيرفر فقط
 const RP_APPLY_PANEL_CHANNEL_ID = "1465803291714785481";
+
+// روم بانل الخدمات فقط
 const SERVICES_PANEL_CHANNEL_ID = "1465757986684403828";
 
 // ================= REVIEW CHANNEL IDS =================
@@ -35,7 +38,7 @@ const RP_REVIEW_CHANNEL_ID = "1477562619001831445";
 const CREATOR_REVIEW_CHANNEL_ID = "1477777545767420116";
 const ADMIN_REVIEW_CHANNEL_ID = "1479216695938650263";
 
-// ================= VOICE =================
+// ================= VOICE INTERVIEW ROOM =================
 const VOICE_ROOM_ID = "1465752669564964935";
 
 // ================= TICKET CATEGORIES =================
@@ -44,13 +47,14 @@ const APPEAL_CATEGORY_ID = "1477765907496308897";
 const REPORT_CATEGORY_ID = "1473843823607021579";
 const SUGGEST_CATEGORY_ID = "1477766632817426675";
 
-// ================= ROLES =================
+// ================= ADMIN ROLES (3) =================
 const ADMIN_ROLE_IDS = [
   "1465798793772666941",
   "1465800480474005569",
   "1467593770898948158",
 ];
 
+// ================= ACCEPT ROLES =================
 const CREATOR_ROLE_ID = "1477845260095979552";
 const ADMIN_ACCEPT_ROLE_ID = "1467593770898948158";
 const RP_PASS_ROLE_ID = "1477569088988512266";
@@ -83,6 +87,36 @@ const RP_QUESTIONS = [
   { key: "whyServer", q: "⭐ لماذا تريد الانضمام إلى السيرفر؟" },
 ];
 
+const CREATOR_QUESTIONS = [
+  { key: "platform", q: "🎥 ما المنصة التي تنشر عليها؟" },
+  { key: "channelLink", q: "🔗 أرسل رابط القناة / الحساب." },
+  { key: "followers", q: "👥 كم عدد المتابعين / المشتركين؟" },
+  { key: "contentType", q: "📹 ما نوع المحتوى الذي تقدمه؟" },
+  { key: "schedule", q: "📅 ما جدول النشر / البث؟" },
+  { key: "rpExperience", q: "🎮 هل لديك خبرة RP؟" },
+  { key: "serverPromo", q: "📢 كيف ستفيد السيرفر كمحتوى؟" },
+  { key: "quality", q: "🎬 ما جودة المحتوى عندك؟" },
+  { key: "activity", q: "⏱️ كم مرة تنشر أسبوعيًا؟" },
+  { key: "why", q: "💡 لماذا تريد رتبة صانع محتوى؟" },
+  { key: "agree", q: "✅ هل تلتزم بقوانين السيرفر؟ (نعم/لا)" },
+];
+
+const ADMIN_QUESTIONS = [
+  { key: "discordName", q: "👤 ما اسمك في الديسكورد مع التاغ؟" },
+  { key: "age", q: "🎂 كم عمرك؟" },
+  { key: "timezone", q: "🕒 ما توقيتك / دولتك؟" },
+  { key: "activity", q: "⏱️ كم ساعة تتواجد يوميًا؟" },
+  { key: "experience", q: "🛡️ هل لديك خبرة إدارة؟ اشرح." },
+  { key: "rules", q: "📚 اذكر 5 قوانين مهمة من وجهة نظرك." },
+  { key: "conflict", q: "🤝 لو لاعبين بيتخانقوا كيف تتصرف؟" },
+  { key: "powerGaming", q: "🚫 اشرح PowerGaming مع مثال." },
+  { key: "metaGaming", q: "🚫 اشرح MetaGaming مع مثال." },
+  { key: "reports", q: "🚨 لو جاءك بلاغ ضد صديقك، كيف تتصرف؟" },
+  { key: "evidence", q: "📎 ما الأدلة التي تعتمد عليها؟" },
+  { key: "pressure", q: "🧠 كيف تتعامل مع الضغط أو الإساءة أثناء المشكلة؟" },
+  { key: "commit", q: "✅ هل تتعهد بالحياد وعدم إساءة استخدام الصلاحيات؟ (نعم/لا)" },
+];
+
 // ======================================================
 // CLIENT
 // ======================================================
@@ -95,148 +129,6 @@ const client = new Client({
     GatewayIntentBits.DirectMessages,
   ],
   partials: [Partials.Channel],
-});
-
-// ======================================================
-// STATE
-// ======================================================
-const sessions = new Map();
-const activeApplications = new Set();
-
-// ======================================================
-// HELPERS
-// ======================================================
-function safeTrim(v, max = 1024) {
-  if (!v) return "";
-  const s = String(v).trim();
-  return s.length > max ? s.slice(0, max - 3) + "..." : s;
-}
-
-function wordCount(text) {
-  return String(text || "").trim().split(/\s+/).filter(Boolean).length;
-}
-
-function tooShortAnswer(text) {
-  const t = String(text || "").trim();
-  if (t.length < 2) return true;
-  if (/^[0-9]+$/.test(t)) return true;
-  return false;
-}
-
-function endSession(userId) {
-  sessions.delete(userId);
-  activeApplications.delete(userId);
-}
-
-// ================= NICE REJECT EMBED =================
-function buildNiceRejectEmbed(reasonText) {
-  return new EmbedBuilder()
-    .setColor("#ff2d2d")
-    .setTitle("❌ تم رفض طلبك في السيرفر")
-    .setDescription(
-      `⭐ سبب الرفض: ${reasonText}\n\n📌 يمكنك إعادة التقديم لاحقًا بعد تحسين مستواك.`
-    )
-    .setFooter({ text: "Night City RP • الإدارة" })
-    .setTimestamp();
-}
-
-// ======================================================
-// DM HANDLER (UPDATED)
-// ======================================================
-client.on("messageCreate", async (msg) => {
-  try {
-    if (msg.author.bot) return;
-    if (msg.guild) return;
-
-    const session = sessions.get(msg.author.id);
-    if (!session) return;
-
-    const questions = RP_QUESTIONS;
-    const current = questions[session.step];
-    if (!current) {
-      endSession(msg.author.id);
-      return;
-    }
-
-    const answer = safeTrim(msg.content, 2000);
-
-    // ===== AGE =====
-    if (current.key === "age") {
-      const ageNumber = parseInt(answer.match(/\d+/)?.[0]);
-
-      if (!ageNumber) {
-        await msg.author.send({
-          embeds: [buildNiceRejectEmbed("يرجى كتابة العمر بشكل صحيح")]
-        });
-        return;
-      }
-
-      if (ageNumber < 16) {
-        await msg.author.send({
-          embeds: [buildNiceRejectEmbed("السن أقل من الحد المطلوب (16)")]
-        });
-        endSession(msg.author.id);
-        return;
-      }
-    }
-
-    // ===== BAD =====
-    const badAnswers = ["idk","لا اعرف","unknown","none"];
-    if (badAnswers.includes(answer.toLowerCase())) {
-      await msg.author.send({
-        embeds: [buildNiceRejectEmbed("الإجابة غير واضحة")]
-      });
-      return;
-    }
-
-    if (tooShortAnswer(answer)) {
-      await msg.author.send({
-        embeds: [buildNiceRejectEmbed("الإجابة قصيرة جدًا")]
-      });
-      return;
-    }
-
-    // ===== STORY =====
-    if (current.key === "story") {
-
-      let rejectReasons = [];
-
-      if (wordCount(answer) < 150) {
-        rejectReasons.push("القصة أقل من 150 كلمة");
-      }
-
-      const aiPatterns = ["في عالم","منذ صغره","في أحد الأيام","كبر وهو"];
-      let aiScore = 0;
-      for (const p of aiPatterns) {
-        if (answer.includes(p)) aiScore++;
-      }
-
-      if (aiScore >= 3) {
-        rejectReasons.push("القصة تبدو AI");
-      }
-
-      if (rejectReasons.length > 0) {
-        await msg.author.send({
-          embeds: [buildNiceRejectEmbed(rejectReasons.join(" - "))]
-        });
-        endSession(msg.author.id);
-        return;
-      }
-    }
-
-    session.answers[current.key] = answer;
-    session.step++;
-
-    if (session.step < questions.length) {
-      await msg.author.send(questions[session.step].q);
-    } else {
-      await msg.author.send("✅ تم إرسال التقديم");
-      endSession(msg.author.id);
-    }
-
-  } catch (e) {
-    console.log(e);
-  }
 });
 
 // ======================================================
@@ -393,21 +285,6 @@ function ticketCategory(kind) {
   }
 }
 
-// ================= NICE REJECT EMBED =================
-function buildNiceRejectEmbed(reasonText, finalReject = false) {
-  return new EmbedBuilder()
-    .setColor("#ff2d2d")
-    .setTitle(finalReject ? "⛔ تم رفض طلبك نهائيًا" : "❌ تم رفض طلبك في السيرفر")
-    .setDescription(
-      `⭐ سبب الرفض: ${safeTrim(reasonText, 1500)}\n\n` +
-      (finalReject
-        ? "📌 لا يمكنك التقديم مرة أخرى."
-        : "📌 يمكنك إعادة التقديم لاحقًا بعد تحسين مستواك.")
-    )
-    .setFooter({ text: "Night City RP • الإدارة" })
-    .setTimestamp();
-}
-
 // ======================================================
 // PRETTY EMBEDS
 // ======================================================
@@ -489,14 +366,24 @@ function adminAcceptEmbed() {
 }
 
 function rpRejectEmbed(reason, finalReject = false) {
-  return buildNiceRejectEmbed(reason, finalReject);
+  return new EmbedBuilder()
+    .setColor(0xff2d2d)
+    .setTitle(finalReject ? "⛔ تم رفض طلبك نهائيًا" : "❌ تم رفض طلبك في السيرفر")
+    .setDescription(
+      `⭐ **سبب الرفض:**\n${safeTrim(reason, 1500)}\n\n` +
+      (finalReject
+        ? "تم رفضك **نهائيًا** ولا يمكنك التقديم مرة أخرى."
+        : "يمكنك إعادة التقديم لاحقًا بعد تحسين مستواك.")
+    )
+    .setFooter({ text: "Night City RP • الإدارة" })
+    .setTimestamp();
 }
 
 function creatorRejectEmbed(reason) {
   return new EmbedBuilder()
     .setColor(0xff2d2d)
     .setTitle("❌ تم رفض طلب صانع المحتوى")
-    .setDescription(`⭐ سبب الرفض: ${safeTrim(reason, 1500)}`)
+    .setDescription(`🎥 **سبب الرفض:**\n${safeTrim(reason, 1500)}`)
     .setFooter({ text: "Night City RP • الإدارة" })
     .setTimestamp();
 }
@@ -505,7 +392,7 @@ function adminRejectEmbed(reason) {
   return new EmbedBuilder()
     .setColor(0xff2d2d)
     .setTitle("❌ تم رفض طلب الإدارة")
-    .setDescription(`⭐ سبب الرفض: ${safeTrim(reason, 1500)}`)
+    .setDescription(`🛡️ **سبب الرفض:**\n${safeTrim(reason, 1500)}`)
     .setFooter({ text: "Night City RP • الإدارة" })
     .setTimestamp();
 }
@@ -1124,7 +1011,8 @@ client.on("interactionCreate", async (interaction) => {
 
         return openRejectModal(interaction, "rp", userId);
       }
-            // ===== APPROVE/REJECT CREATOR =====
+
+      // ===== APPROVE/REJECT CREATOR =====
       if (customId.startsWith("approve_creator_") || customId.startsWith("reject_creator_")) {
         const member = interaction.member;
         if (!member || !isAdmin(member)) {
@@ -1206,9 +1094,7 @@ client.on("interactionCreate", async (interaction) => {
             }
 
             try {
-              await target.send({
-                embeds: [buildNiceRejectEmbed(reason, finalReject)]
-              });
+              await target.send({ embeds: [rpRejectEmbed(reason, finalReject)] });
             } catch {}
           }
 
@@ -1272,7 +1158,7 @@ client.on("interactionCreate", async (interaction) => {
         }
 
         await interaction.reply({
-          content: "✅ تم إرسال تقييمك بنجاح.",
+          content: "✅ تم إرسال تقييمك بنجاح إلى الإدارة، شكرًا لك.",
           flags: MessageFlags.Ephemeral,
         }).catch(() => {});
         return;
@@ -1280,6 +1166,151 @@ client.on("interactionCreate", async (interaction) => {
     }
   } catch (e) {
     console.log("interaction error:", e?.message || e);
+    if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
+      interaction.reply({
+        content: "❌ حدث خطأ غير متوقع، فضلاً راجع السجل.",
+        flags: MessageFlags.Ephemeral,
+      }).catch(() => {});
+    }
+  }
+});
+
+// ======================================================
+// DM HANDLER
+// ======================================================
+client.on("messageCreate", async (msg) => {
+  try {
+    if (msg.author.bot) return;
+    if (msg.guild) return;
+
+    const session = sessions.get(msg.author.id);
+    if (!session) return;
+
+    const guild = await client.guilds.fetch(session.guildId).catch(() => null);
+    if (!guild) {
+      endSession(msg.author.id);
+      return;
+    }
+
+    const questions =
+      session.type === "rp"
+        ? RP_QUESTIONS
+        : session.type === "creator"
+        ? CREATOR_QUESTIONS
+        : ADMIN_QUESTIONS;
+
+    const current = questions[session.step];
+    if (!current) {
+      endSession(msg.author.id);
+      return;
+    }
+
+    const answer = safeTrim(msg.content, 2000);
+    // ================= AGE CHECK =================
+if (session.type === "rp" && current.key === "age") {
+
+  const ageNumber = parseInt(answer.match(/\d+/)?.[0]);
+
+  if (!ageNumber) {
+    await msg.author.send("❌ يرجى كتابة العمر بشكل صحيح.");
+    return;
+  }
+
+  if (ageNumber < 16) {
+    await msg.author.send(
+      "❌ تم رفض التقديم.\n\nسبب الرفض:\n• السن أقل من الحد المطلوب (16)."
+    );
+
+    endSession(msg.author.id);
+    return;
+  }
+}
+
+// ================= LOW QUALITY ANSWERS =================
+const badAnswers = [
+  "idk",
+  "لا اعرف",
+  "ما اعرف",
+  "unknown",
+  "none",
+];
+
+if (badAnswers.includes(answer.toLowerCase())) {
+  await msg.author.send("❌ الإجابة غير واضحة. يرجى كتابة شرح بسيط.");
+  return;
+}
+
+    if (tooShortAnswer(answer)) {
+      await msg.author.send("❌ الإجابة قصيرة جدًا أو غير واضحة. فضلاً أعد كتابة إجابة مفهومة.");
+      return;
+    }
+
+if (session.type === "rp" && current.key === "story") {
+
+  let rejectReasons = [];
+
+  // شرط عدد الكلمات
+  if (wordCount(answer) < 150) {
+    rejectReasons.push("القصة أقل من 150 كلمة");
+  }
+
+  // كشف AI (محسن)
+  const aiPatterns = [
+    "في عالم",
+    "تدور أحداث",
+    "منذ صغره",
+    "كبر وهو",
+    "في أحد الأيام",
+    "لطالما كان",
+    "بدأت القصة",
+    "كان يعيش",
+    "في مدينة",
+  ];
+
+  let aiScore = 0;
+  for (const pattern of aiPatterns) {
+    if (answer.includes(pattern)) {
+      aiScore++;
+    }
+  }
+
+  if (aiScore >= 4) {
+    rejectReasons.push("القصة تبدو مولدة بمساعدة الذكاء الاصطناعي");
+  }
+
+  // لو في أسباب رفض
+  if (rejectReasons.length > 0) {
+    await msg.author.send(
+      "❌ تم رفض التقديم.\n\nسبب الرفض:\n• " +
+      rejectReasons.join("\n• ")
+    );
+
+    endSession(msg.author.id);
+    return;
+  }
+}
+    session.answers[current.key] = answer;
+    session.step += 1;
+    sessions.set(msg.author.id, session);
+
+    if (session.step < questions.length) {
+      await msg.author.send(questions[session.step].q);
+      return;
+    }
+
+    await msg.author.send("✅ تم استلام التقديم وإرساله للإدارة للمراجعة.");
+
+    if (session.type === "rp") {
+      await submitRpToReview(guild, msg.author.id, session.answers);
+    } else if (session.type === "creator") {
+      await submitCreatorToReview(guild, msg.author.id, session.answers);
+    } else {
+      await submitAdminToReview(guild, msg.author.id, session.answers);
+    }
+
+    endSession(msg.author.id);
+  } catch (e) {
+    console.log("dm flow error:", e?.message || e);
   }
 });
 
@@ -1287,7 +1318,7 @@ client.on("interactionCreate", async (interaction) => {
 // START
 // ======================================================
 if (!TOKEN) {
-  console.log("❌ Missing TOKEN");
+  console.log("❌ Missing TOKEN env var. Put TOKEN in Railway variables.");
 } else {
-  client.login(TOKEN).catch(console.error);
+  client.login(TOKEN).catch((e) => console.log("Login error:", e?.message || e));
 }
