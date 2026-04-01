@@ -14,6 +14,8 @@ const {
   TextInputBuilder,
   TextInputStyle,
   MessageFlags,
+  StringSelectMenuBuilder,
+  AttachmentBuilder,
 } = require("discord.js");
 
 // ======================================================
@@ -22,10 +24,10 @@ const {
 const TOKEN = process.env.TOKEN;
 
 // ================= CHANNEL IDS =================
-const WELCOME_CHANNEL_ID = "1465609782680621254"; // روم الترحيب فقط
-const RULES_CHANNEL_ID = "1465786939755200687"; // روم القوانين
-const FEEDBACK_CHANNEL_ID = "1480098551248715896"; // روم التقييمات
-const CONTROL_PANEL_CHANNEL_ID = "1480098674578034698"; // روم لوحة التحكم
+const WELCOME_CHANNEL_ID = "1465609782680621254";
+const RULES_CHANNEL_ID = "1465786939755200687";
+const FEEDBACK_CHANNEL_ID = "1480098551248715896";
+const CONTROL_PANEL_CHANNEL_ID = "1480098674578034698";
 
 // روم بانل تقديم السيرفر فقط
 const RP_APPLY_PANEL_CHANNEL_ID = "1465803291714785481";
@@ -62,9 +64,16 @@ const RP_REJECT1_ROLE_ID = "1477568923208519681";
 const RP_REJECT2_ROLE_ID = "1477569051185119332";
 
 // ================= PANEL MARKERS =================
-const PANEL_MARKER_RP = "PANEL_RP_APPLY_v6";
-const PANEL_MARKER_SERVICES = "PANEL_SERVICES_v6";
-const PANEL_MARKER_CONTROL = "PANEL_CONTROL_v3";
+const PANEL_MARKER_RP = "PANEL_RP_APPLY_v7";
+const PANEL_MARKER_SERVICES = "PANEL_SERVICES_v7";
+const PANEL_MARKER_CONTROL = "PANEL_CONTROL_v4";
+
+// ======================================================
+// FILES
+// ======================================================
+const SETTINGS_FILE = path.join(__dirname, "bot_settings.json");
+const FEEDBACK_FILE = path.join(__dirname, "feedback_users.json");
+const TICKET_RATINGS_FILE = path.join(__dirname, "ticket_ratings.json");
 
 // ======================================================
 // QUESTIONS
@@ -134,8 +143,6 @@ const client = new Client({
 // ======================================================
 // STATE
 // ======================================================
-const SETTINGS_FILE = path.join(__dirname, "bot_settings.json");
-
 const defaultSettings = {
   rpApply: true,
   support: true,
@@ -147,26 +154,44 @@ const defaultSettings = {
   feedback: true,
 };
 
-function loadSettings() {
+function readJsonFile(file, fallback) {
   try {
-    if (!fs.existsSync(SETTINGS_FILE)) {
-      fs.writeFileSync(SETTINGS_FILE, JSON.stringify(defaultSettings, null, 2));
-      return { ...defaultSettings };
+    if (!fs.existsSync(file)) {
+      fs.writeFileSync(file, JSON.stringify(fallback, null, 2));
+      return fallback;
     }
-    const raw = fs.readFileSync(SETTINGS_FILE, "utf8");
-    return { ...defaultSettings, ...JSON.parse(raw) };
+    const raw = fs.readFileSync(file, "utf8");
+    return JSON.parse(raw);
   } catch {
-    return { ...defaultSettings };
+    return fallback;
   }
 }
 
-function saveSettings() {
+function writeJsonFile(file, data) {
   try {
-    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
+    fs.writeFileSync(file, JSON.stringify(data, null, 2));
   } catch {}
 }
 
+function loadSettings() {
+  return { ...defaultSettings, ...readJsonFile(SETTINGS_FILE, defaultSettings) };
+}
+
 let settings = loadSettings();
+const feedbackUsers = new Set(readJsonFile(FEEDBACK_FILE, []));
+const ticketRatings = readJsonFile(TICKET_RATINGS_FILE, {});
+
+function saveSettings() {
+  writeJsonFile(SETTINGS_FILE, settings);
+}
+
+function saveFeedbackUsers() {
+  writeJsonFile(FEEDBACK_FILE, [...feedbackUsers]);
+}
+
+function saveTicketRatings() {
+  writeJsonFile(TICKET_RATINGS_FILE, ticketRatings);
+}
 
 const sessions = new Map();
 const activeApplications = new Set();
@@ -208,13 +233,6 @@ function endSession(userId) {
 
 function replyEphemeral(interaction, content) {
   return interaction.reply({
-    content,
-    flags: MessageFlags.Ephemeral,
-  });
-}
-
-async function followEphemeral(interaction, content) {
-  return interaction.followUp({
     content,
     flags: MessageFlags.Ephemeral,
   });
@@ -285,6 +303,81 @@ function ticketCategory(kind) {
   }
 }
 
+function ticketTopic(ownerId, kind, claimedBy = "none") {
+  return `OWNER:${ownerId} | TYPE:${kind} | CLAIMED:${claimedBy}`;
+}
+
+function parseTicketTopic(topic) {
+  const text = String(topic || "");
+  const owner = text.match(/OWNER:([^|]+)/)?.[1]?.trim() || null;
+  const type = text.match(/TYPE:([^|]+)/)?.[1]?.trim() || null;
+  const claimedBy = text.match(/CLAIMED:([^|]+)/)?.[1]?.trim() || "none";
+  return { owner, type, claimedBy };
+}
+
+async function getTicketOwnerMember(channel) {
+  const info = parseTicketTopic(channel.topic);
+  if (!info.owner) return null;
+  return channel.guild.members.fetch(info.owner).catch(() => null);
+}
+
+async function createTranscriptFile(channel) {
+  let allMessages = [];
+  let lastId;
+
+  while (true) {
+    const fetched = await channel.messages.fetch({
+      limit: 100,
+      ...(lastId ? { before: lastId } : {}),
+    }).catch(() => null);
+
+    if (!fetched || fetched.size === 0) break;
+
+    allMessages.push(...[...fetched.values()]);
+    lastId = fetched.last().id;
+
+    if (fetched.size < 100) break;
+    if (allMessages.length >= 500) break;
+  }
+
+  allMessages = allMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+
+  let content = "";
+  content += `Night City RP - Ticket Transcript\n`;
+  content += `Channel: ${channel.name}\n`;
+  content += `Date: ${new Date().toLocaleString("en-GB")}\n`;
+  content += `====================================================\n\n`;
+
+  for (const m of allMessages) {
+    const time = new Date(m.createdTimestamp).toLocaleString("en-GB");
+    const author = `${m.author?.tag || "Unknown User"}`;
+    const body = m.content?.trim() || "[No Text]";
+    content += `[${time}] ${author}: ${body}\n`;
+
+    if (m.attachments?.size) {
+      for (const [, att] of m.attachments) {
+        content += `  Attachment: ${att.url}\n`;
+      }
+    }
+
+    if (m.embeds?.length) {
+      for (const emb of m.embeds) {
+        const parts = [
+          emb.title ? `Title: ${emb.title}` : "",
+          emb.description ? `Description: ${emb.description}` : "",
+        ].filter(Boolean);
+        if (parts.length) content += `  Embed -> ${parts.join(" | ")}\n`;
+      }
+    }
+
+    content += `\n`;
+  }
+
+  const filePath = path.join(__dirname, `transcript-${channel.id}.txt`);
+  fs.writeFileSync(filePath, content, "utf8");
+  return filePath;
+}
+
 // ======================================================
 // PRETTY EMBEDS
 // ======================================================
@@ -294,7 +387,7 @@ function buildWelcomeEmbed(member) {
     .setTitle("👋 Welcome To Night City RP")
     .setDescription(
       `مرحباً <@${member.id}>\n\n` +
-      `أهلاً بك في **Night City Roleplay**\n\n` +
+      `أهلاً بك في **Night City RP**\n\n` +
       `يرجى قراءة القوانين ثم التقديم على الوايت ليست.\n` +
       `ويمكنك أيضًا تقييم السيرفر من الزر بالأسفل.`
     )
@@ -397,6 +490,57 @@ function adminRejectEmbed(reason) {
     .setTimestamp();
 }
 
+function ticketOpenEmbed(userId, kind) {
+  return new EmbedBuilder()
+    .setColor(0x2b2d31)
+    .setTitle("🎫 تم فتح التذكرة بنجاح")
+    .setDescription(
+      `مرحبًا <@${userId}>.\n\n` +
+      `**نوع التذكرة:** ${ticketLabel(kind)}\n\n` +
+      `اكتب سبب التذكرة أو المشكلة **بالتفصيل** داخل هذه القناة.\n` +
+      `سيقوم أحد أفراد الإدارة باستلامها في أقرب وقت.`
+    )
+    .setFooter({ text: "Night City RP • Tickets" })
+    .setTimestamp();
+}
+
+function ticketClosedDmEmbed(reason, channelName) {
+  return new EmbedBuilder()
+    .setColor(0xff3b30)
+    .setTitle("🔒 تم إغلاق تذكرتك")
+    .setDescription(
+      `شكرًا لتواصلك مع **Night City RP**.\n\n` +
+      `**اسم التذكرة:** ${channelName}\n\n` +
+      `**سبب الإغلاق:**\n${safeTrim(reason, 1800)}\n\n` +
+      `تم إرفاق Transcript كامل للمحادثة في هذه الرسالة.`
+    )
+    .setFooter({ text: "Night City RP • Support" })
+    .setTimestamp();
+}
+
+function ticketRatingRequestEmbed(channelName) {
+  return new EmbedBuilder()
+    .setColor(0xffd54f)
+    .setTitle("⭐ تقييم الخدمة")
+    .setDescription(
+      `شكرًا لاستخدامك نظام التذاكر في **Night City RP**.\n\n` +
+      `يرجى تقييم تجربتك في التذكرة **${channelName}** من 1 إلى 5 نجوم.\n` +
+      `بعد اختيار عدد النجوم، سيطلب منك البوت كتابة سبب التقييم.`
+    )
+    .setFooter({ text: "Night City RP • Feedback" })
+    .setTimestamp();
+}
+
+function buildTicketRatingRow(channelId) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`ticket_rate_${channelId}_1`).setLabel("⭐").setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId(`ticket_rate_${channelId}_2`).setLabel("⭐⭐").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`ticket_rate_${channelId}_3`).setLabel("⭐⭐⭐").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`ticket_rate_${channelId}_4`).setLabel("⭐⭐⭐⭐").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`ticket_rate_${channelId}_5`).setLabel("⭐⭐⭐⭐⭐").setStyle(ButtonStyle.Success)
+  );
+}
+
 // ======================================================
 // PANELS BUILDERS
 // ======================================================
@@ -421,58 +565,36 @@ async function buildRpPanelPayload() {
 async function buildServicesPanelPayload() {
   const embed = new EmbedBuilder()
     .setColor(0x2b2d31)
-    .setTitle("🛠️ خدمات السيرفر")
-    .setDescription("اختر الخدمة المطلوبة من الأزرار بالأسفل.")
+    .setTitle("🎫 فتح تذكرة")
+    .setDescription("اختر نوع التذكرة من القائمة بالأسفل.")
     .setFooter({ text: `Night City RP • ${PANEL_MARKER_SERVICES}` });
 
-  const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("ticket_support")
-      .setLabel(settings.support ? "🧰 دعم فني" : "🚫 دعم فني")
-      .setStyle(settings.support ? ButtonStyle.Secondary : ButtonStyle.Secondary)
-      .setDisabled(!settings.support),
+  const options = [];
+  if (settings.support) options.push({ label: "دعم فني", description: "فتح تذكرة دعم فني", value: "support", emoji: "🧰" });
+  if (settings.appeal) options.push({ label: "استئناف", description: "فتح تذكرة استئناف", value: "appeal", emoji: "📄" });
+  if (settings.report) options.push({ label: "شكوى عن لاعب", description: "فتح تذكرة شكوى", value: "report", emoji: "🚨" });
+  if (settings.suggest) options.push({ label: "اقتراح", description: "فتح تذكرة اقتراح", value: "suggest", emoji: "💡" });
 
-    new ButtonBuilder()
-      .setCustomId("ticket_appeal")
-      .setLabel(settings.appeal ? "📄 استئناف" : "🚫 استئناف")
-      .setStyle(settings.appeal ? ButtonStyle.Secondary : ButtonStyle.Secondary)
-      .setDisabled(!settings.appeal),
-
-    new ButtonBuilder()
-      .setCustomId("ticket_report")
-      .setLabel(settings.report ? "🚨 شكوى عن لاعب" : "🚫 شكوى")
-      .setStyle(settings.report ? ButtonStyle.Danger : ButtonStyle.Secondary)
-      .setDisabled(!settings.report)
+  const row = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId("ticket_select")
+      .setPlaceholder(options.length ? "اختر نوع التذكرة" : "لا توجد تذاكر متاحة الآن")
+      .setDisabled(options.length === 0)
+      .addOptions(
+        options.length
+          ? options
+          : [{ label: "مغلق", description: "جميع التذاكر مغلقة", value: "closed", emoji: "🚫" }]
+      )
   );
 
-  const row2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("ticket_suggest")
-      .setLabel(settings.suggest ? "💡 اقتراح" : "🚫 اقتراح")
-      .setStyle(settings.suggest ? ButtonStyle.Secondary : ButtonStyle.Secondary)
-      .setDisabled(!settings.suggest),
-
-    new ButtonBuilder()
-      .setCustomId("start_admin_apply")
-      .setLabel(settings.adminApply ? "👮 تقديم على الإدارة" : "🚫 تقديم الإدارة مغلق")
-      .setStyle(settings.adminApply ? ButtonStyle.Primary : ButtonStyle.Secondary)
-      .setDisabled(!settings.adminApply),
-
-    new ButtonBuilder()
-      .setCustomId("start_creator_apply")
-      .setLabel(settings.creatorApply ? "🎥 تقديم صانع محتوى" : "🚫 تقديم صانع محتوى مغلق")
-      .setStyle(settings.creatorApply ? ButtonStyle.Success : ButtonStyle.Secondary)
-      .setDisabled(!settings.creatorApply)
-  );
-
-  return { embeds: [embed], components: [row1, row2] };
+  return { embeds: [embed], components: [row] };
 }
 
 async function buildControlPanelPayload() {
   const embed = new EmbedBuilder()
     .setColor(0xf1c40f)
     .setTitle("🎛️ لوحة تحكم الأزرار")
-    .setDescription("من هنا تقدر تفتح وتقفل أي زر في البانلات.")
+    .setDescription("من هنا تقدر تفتح وتقفل الوظائف.")
     .setFooter({ text: `Night City RP • ${PANEL_MARKER_CONTROL}` })
     .setTimestamp();
 
@@ -697,27 +819,41 @@ async function createTicket(interaction, kind) {
   const member = interaction.member;
   if (!guild || !member) return;
 
+  if (!["support", "appeal", "report", "suggest"].includes(kind)) {
+    return replyEphemeral(interaction, "❌ نوع التذكرة غير صحيح.");
+  }
+
+  if (kind === "support" && !settings.support) return replyEphemeral(interaction, "⚠️ الدعم الفني مغلق حاليًا.");
+  if (kind === "appeal" && !settings.appeal) return replyEphemeral(interaction, "⚠️ الاستئناف مغلق حاليًا.");
+  if (kind === "report" && !settings.report) return replyEphemeral(interaction, "⚠️ الشكاوى عن اللاعبين مغلقة حاليًا.");
+  if (kind === "suggest" && !settings.suggest) return replyEphemeral(interaction, "⚠️ الاقتراحات مغلقة حاليًا.");
+
   const categoryId = ticketCategory(kind);
   const category = await guild.channels.fetch(categoryId).catch(() => null);
   if (!category || category.type !== ChannelType.GuildCategory) {
     return replyEphemeral(interaction, "❌ كاتيجوري التذاكر غير صحيحة أو غير موجودة.");
   }
 
-  const existing = guild.channels.cache.find(
-    (c) =>
-      c.parentId === categoryId &&
-      c.type === ChannelType.GuildText &&
-      c.permissionOverwrites?.cache?.has(interaction.user.id)
-  );
+  const existing = guild.channels.cache.find((c) => {
+    if (c.parentId !== categoryId || c.type !== ChannelType.GuildText) return false;
+    const info = parseTicketTopic(c.topic);
+    return info.owner === interaction.user.id;
+  });
 
   if (existing) {
     return replyEphemeral(interaction, `⚠️ لديك تذكرة مفتوحة بالفعل: ${existing}`);
   }
 
+  const cleanName = interaction.user.username
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]/g, "")
+    .slice(0, 20) || "user";
+
   const channel = await guild.channels.create({
-    name: `${kind}-${interaction.user.username}`.toLowerCase().replace(/[^a-z0-9\-]/g, "").slice(0, 80),
+    name: `${kind}-${cleanName}`.slice(0, 95),
     type: ChannelType.GuildText,
     parent: categoryId,
+    topic: ticketTopic(interaction.user.id, kind, "none"),
     permissionOverwrites: [
       { id: guild.roles.everyone.id, deny: [PermissionsBitField.Flags.ViewChannel] },
       {
@@ -726,6 +862,8 @@ async function createTicket(interaction, kind) {
           PermissionsBitField.Flags.ViewChannel,
           PermissionsBitField.Flags.SendMessages,
           PermissionsBitField.Flags.ReadMessageHistory,
+          PermissionsBitField.Flags.AttachFiles,
+          PermissionsBitField.Flags.EmbedLinks,
         ],
       },
       ...ADMIN_ROLE_IDS.map((rid) => ({
@@ -735,6 +873,8 @@ async function createTicket(interaction, kind) {
           PermissionsBitField.Flags.SendMessages,
           PermissionsBitField.Flags.ReadMessageHistory,
           PermissionsBitField.Flags.ManageChannels,
+          PermissionsBitField.Flags.AttachFiles,
+          PermissionsBitField.Flags.EmbedLinks,
         ],
       })),
     ],
@@ -742,27 +882,21 @@ async function createTicket(interaction, kind) {
 
   if (!channel) return replyEphemeral(interaction, "❌ فشل إنشاء التذكرة.");
 
-  const embed = new EmbedBuilder()
-    .setColor(0x2b2d31)
-    .setTitle(`🎫 ${ticketLabel(kind)}`)
-    .setDescription(
-      `أهلاً <@${interaction.user.id}> 👋\n` +
-      `اكتب طلبك هنا بالتفصيل، وسيتم الرد عليك من الإدارة.\n\n` +
-      `🔒 زر إغلاق التذكرة مخصص لفريق الإدارة فقط.`
-    )
-    .setFooter({ text: "Night City RP • Tickets" })
-    .setTimestamp();
-
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("ticket_close")
+      .setCustomId("ticket_claim")
+      .setLabel("📌 استلام التذكرة")
+      .setStyle(ButtonStyle.Primary),
+
+    new ButtonBuilder()
+      .setCustomId("ticket_close_reason")
       .setLabel("🔒 إغلاق التذكرة")
       .setStyle(ButtonStyle.Danger)
   );
 
   await channel.send({
     content: `<@${interaction.user.id}>`,
-    embeds: [embed],
+    embeds: [ticketOpenEmbed(interaction.user.id, kind)],
     components: [row],
   }).catch(() => {});
 
@@ -809,11 +943,53 @@ async function openFeedbackReasonModal(interaction, stars) {
   await interaction.showModal(modal);
 }
 
+async function openTicketCloseReasonModal(interaction) {
+  const modal = new ModalBuilder()
+    .setCustomId(`modal_ticket_close_${interaction.channelId}`)
+    .setTitle("سبب إغلاق التذكرة");
+
+  const input = new TextInputBuilder()
+    .setCustomId("reason")
+    .setLabel("اكتب سبب الإغلاق")
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(true);
+
+  modal.addComponents(new ActionRowBuilder().addComponents(input));
+  await interaction.showModal(modal);
+}
+
+async function openTicketRatingReasonModal(interaction, channelId, stars) {
+  const modal = new ModalBuilder()
+    .setCustomId(`modal_ticket_rating_${channelId}_${stars}`)
+    .setTitle(`سبب تقييم التذكرة (${stars} نجوم)`);
+
+  const input = new TextInputBuilder()
+    .setCustomId("reason")
+    .setLabel("اكتب سبب تقييمك")
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(true);
+
+  modal.addComponents(new ActionRowBuilder().addComponents(input));
+  await interaction.showModal(modal);
+}
+
 // ======================================================
 // INTERACTIONS
 // ======================================================
 client.on("interactionCreate", async (interaction) => {
   try {
+    // ================= SELECT MENU =================
+    if (interaction.isStringSelectMenu()) {
+      if (interaction.customId === "ticket_select") {
+        const type = interaction.values[0];
+        if (type === "closed") {
+          return replyEphemeral(interaction, "⚠️ جميع التذاكر مغلقة حاليًا.");
+        }
+        return createTicket(interaction, type);
+      }
+    }
+
+    // ================= BUTTONS =================
     if (interaction.isButton()) {
       const { customId } = interaction;
 
@@ -850,10 +1026,14 @@ client.on("interactionCreate", async (interaction) => {
         return;
       }
 
-      // ===== FEEDBACK =====
+      // ===== FEEDBACK SERVER =====
       if (customId === "open_feedback") {
         if (!settings.feedback) {
           return replyEphemeral(interaction, "⚠️ التقييم مغلق حاليًا.");
+        }
+
+        if (feedbackUsers.has(interaction.user.id)) {
+          return replyEphemeral(interaction, "❌ لقد قمت بتقييم السيرفر بالفعل.");
         }
 
         const row = new ActionRowBuilder().addComponents(
@@ -943,41 +1123,39 @@ client.on("interactionCreate", async (interaction) => {
         return replyEphemeral(interaction, "✅ تم إرسال نموذج الإدارة إلى الخاص (DM).");
       }
 
-      // ===== TICKETS =====
-      if (customId === "ticket_support") {
-        if (!settings.support) return replyEphemeral(interaction, "⚠️ الدعم الفني مغلق حاليًا.");
-        return createTicket(interaction, "support");
-      }
-
-      if (customId === "ticket_appeal") {
-        if (!settings.appeal) return replyEphemeral(interaction, "⚠️ الاستئناف مغلق حاليًا.");
-        return createTicket(interaction, "appeal");
-      }
-
-      if (customId === "ticket_report") {
-        if (!settings.report) return replyEphemeral(interaction, "⚠️ الشكاوى عن اللاعبين مغلقة حاليًا.");
-        return createTicket(interaction, "report");
-      }
-
-      if (customId === "ticket_suggest") {
-        if (!settings.suggest) return replyEphemeral(interaction, "⚠️ الاقتراحات مغلقة حاليًا.");
-        return createTicket(interaction, "suggest");
-      }
-
-      // ===== TICKET CLOSE =====
-      if (customId === "ticket_close") {
+      // ===== CLAIM TICKET =====
+      if (customId === "ticket_claim") {
         const member = interaction.member;
         if (!member || !isAdmin(member)) {
-          return replyEphemeral(interaction, "❌ هذا الإجراء مخصص لفريق الإدارة فقط.");
+          return replyEphemeral(interaction, "❌ فقط الإدارة تستطيع استلام التذكرة.");
         }
 
-        await interaction.reply({
-          content: "✅ سيتم إغلاق التذكرة خلال لحظات.",
-          flags: MessageFlags.Ephemeral,
-        }).catch(() => {});
+        const info = parseTicketTopic(interaction.channel.topic);
+        if (info.claimedBy && info.claimedBy !== "none") {
+          return replyEphemeral(interaction, "⚠️ هذه التذكرة تم استلامها بالفعل.");
+        }
 
-        setTimeout(() => interaction.channel?.delete().catch(() => {}), 1500);
+        await interaction.channel.setTopic(ticketTopic(info.owner, info.type, interaction.user.id)).catch(() => {});
+
+        const embed = new EmbedBuilder()
+          .setColor(0x3498db)
+          .setTitle("📌 تم استلام التذكرة")
+          .setDescription(`تم استلام هذه التذكرة بواسطة ${interaction.user}.`)
+          .setFooter({ text: "Night City RP • Tickets" })
+          .setTimestamp();
+
+        await interaction.reply({ embeds: [embed] }).catch(() => {});
         return;
+      }
+
+      // ===== CLOSE TICKET =====
+      if (customId === "ticket_close_reason") {
+        const member = interaction.member;
+        if (!member || !isAdmin(member)) {
+          return replyEphemeral(interaction, "❌ فقط الإدارة تستطيع إغلاق التذكرة.");
+        }
+
+        return openTicketCloseReasonModal(interaction);
       }
 
       // ===== APPROVE/REJECT RP =====
@@ -1067,9 +1245,22 @@ client.on("interactionCreate", async (interaction) => {
 
         return openRejectModal(interaction, "admin", userId);
       }
+
+      // ===== TICKET RATE BUTTONS =====
+      if (customId.startsWith("ticket_rate_")) {
+        const parts = customId.split("_");
+        const channelId = parts[2];
+        const stars = parts[3];
+
+        if (ticketRatings[channelId]?.ratedUsers?.includes(interaction.user.id)) {
+          return replyEphemeral(interaction, "❌ لقد قمت بتقييم هذه التذكرة بالفعل.");
+        }
+
+        return openTicketRatingReasonModal(interaction, channelId, stars);
+      }
     }
 
-    // ===== MODAL SUBMIT =====
+    // ================= MODAL SUBMIT =================
     if (interaction.isModalSubmit()) {
       const id = interaction.customId;
 
@@ -1142,6 +1333,10 @@ client.on("interactionCreate", async (interaction) => {
         const reason = interaction.fields.getTextInputValue("reason");
         const ch = await interaction.guild.channels.fetch(FEEDBACK_CHANNEL_ID).catch(() => null);
 
+        if (feedbackUsers.has(interaction.user.id)) {
+          return replyEphemeral(interaction, "❌ لقد قمت بتقييم السيرفر بالفعل.");
+        }
+
         if (ch?.isTextBased()) {
           const embed = new EmbedBuilder()
             .setColor(0xffd54f)
@@ -1157,8 +1352,110 @@ client.on("interactionCreate", async (interaction) => {
           await ch.send({ embeds: [embed] }).catch(() => {});
         }
 
+        feedbackUsers.add(interaction.user.id);
+        saveFeedbackUsers();
+
         await interaction.reply({
           content: "✅ تم إرسال تقييمك بنجاح إلى الإدارة، شكرًا لك.",
+          flags: MessageFlags.Ephemeral,
+        }).catch(() => {});
+        return;
+      }
+
+      // ===== CLOSE TICKET MODAL =====
+      if (id.startsWith("modal_ticket_close_")) {
+        const member = interaction.member;
+        if (!member || !isAdmin(member)) {
+          return replyEphemeral(interaction, "❌ فقط الإدارة تستطيع إغلاق التذكرة.");
+        }
+
+        const reason = interaction.fields.getTextInputValue("reason");
+        const channel = interaction.channel;
+        const ownerMember = await getTicketOwnerMember(channel);
+
+        const transcriptPath = await createTranscriptFile(channel).catch(() => null);
+
+        if (transcriptPath) {
+          const transcriptAttachment = new AttachmentBuilder(transcriptPath);
+          await channel.send({
+            content: "📄 Transcript التذكرة قبل الإغلاق:",
+            files: [transcriptAttachment],
+          }).catch(() => {});
+        }
+
+        if (ownerMember) {
+          try {
+            const files = transcriptPath ? [new AttachmentBuilder(transcriptPath)] : [];
+            await ownerMember.send({
+              embeds: [ticketClosedDmEmbed(reason, channel.name)],
+              files,
+            });
+
+            await ownerMember.send({
+              embeds: [ticketRatingRequestEmbed(channel.name)],
+              components: [buildTicketRatingRow(channel.id)],
+            });
+          } catch {}
+        }
+
+        await interaction.reply({
+          content: "✅ تم إرسال السبب و Transcript إلى العضو، وسيتم إغلاق التذكرة خلال لحظات.",
+          flags: MessageFlags.Ephemeral,
+        }).catch(() => {});
+
+        setTimeout(async () => {
+          await channel.delete().catch(() => {});
+          if (transcriptPath && fs.existsSync(transcriptPath)) {
+            fs.unlinkSync(transcriptPath);
+          }
+        }, 3000);
+
+        return;
+      }
+
+      // ===== TICKET RATING REASON MODAL =====
+      if (id.startsWith("modal_ticket_rating_")) {
+        const parts = id.split("_");
+        const channelId = parts[3];
+        const stars = parts[4];
+        const reason = interaction.fields.getTextInputValue("reason");
+
+        if (!ticketRatings[channelId]) {
+          ticketRatings[channelId] = { ratedUsers: [], ratings: [] };
+        }
+
+        if (ticketRatings[channelId].ratedUsers.includes(interaction.user.id)) {
+          return replyEphemeral(interaction, "❌ لقد قمت بتقييم هذه التذكرة بالفعل.");
+        }
+
+        ticketRatings[channelId].ratedUsers.push(interaction.user.id);
+        ticketRatings[channelId].ratings.push({
+          userId: interaction.user.id,
+          stars: Number(stars),
+          reason: safeTrim(reason, 2000),
+          at: new Date().toISOString(),
+        });
+        saveTicketRatings();
+
+        const ch = await interaction.client.channels.fetch(FEEDBACK_CHANNEL_ID).catch(() => null);
+        if (ch?.isTextBased()) {
+          const embed = new EmbedBuilder()
+            .setColor(0xffd54f)
+            .setTitle("⭐ تقييم جديد للتذكرة")
+            .addFields(
+              { name: "العضو", value: `<@${interaction.user.id}>`, inline: true },
+              { name: "رقم التذكرة", value: channelId, inline: true },
+              { name: "عدد النجوم", value: `${stars}`, inline: true },
+              { name: "السبب", value: safeTrim(reason, 1024), inline: false }
+            )
+            .setFooter({ text: "Night City RP • Ticket Rating" })
+            .setTimestamp();
+
+          await ch.send({ embeds: [embed] }).catch(() => {});
+        }
+
+        await interaction.reply({
+          content: "✅ شكرًا لك، تم إرسال تقييم التذكرة بنجاح.",
           flags: MessageFlags.Ephemeral,
         }).catch(() => {});
         return;
@@ -1206,89 +1503,76 @@ client.on("messageCreate", async (msg) => {
     }
 
     const answer = safeTrim(msg.content, 2000);
-    // ================= AGE CHECK =================
-if (session.type === "rp" && current.key === "age") {
 
-  const ageNumber = parseInt(answer.match(/\d+/)?.[0]);
+    if (session.type === "rp" && current.key === "age") {
+      const ageNumber = parseInt(answer.match(/\d+/)?.[0]);
 
-  if (!ageNumber) {
-    await msg.author.send("❌ يرجى كتابة العمر بشكل صحيح.");
-    return;
-  }
+      if (!ageNumber) {
+        await msg.author.send("❌ يرجى كتابة العمر بشكل صحيح.");
+        return;
+      }
 
-  if (ageNumber < 16) {
-    await msg.author.send(
-      "❌ تم رفض التقديم.\n\nسبب الرفض:\n• السن أقل من الحد المطلوب (16)."
-    );
+      if (ageNumber < 16) {
+        await msg.author.send(
+          "❌ تم رفض التقديم.\n\nسبب الرفض:\n• السن أقل من الحد المطلوب (16)."
+        );
 
-    endSession(msg.author.id);
-    return;
-  }
-}
+        endSession(msg.author.id);
+        return;
+      }
+    }
 
-// ================= LOW QUALITY ANSWERS =================
-const badAnswers = [
-  "idk",
-  "لا اعرف",
-  "ما اعرف",
-  "unknown",
-  "none",
-];
-
-if (badAnswers.includes(answer.toLowerCase())) {
-  await msg.author.send("❌ الإجابة غير واضحة. يرجى كتابة شرح بسيط.");
-  return;
-}
+    const badAnswers = ["idk", "لا اعرف", "ما اعرف", "unknown", "none"];
+    if (badAnswers.includes(answer.toLowerCase())) {
+      await msg.author.send("❌ الإجابة غير واضحة. يرجى كتابة شرح بسيط.");
+      return;
+    }
 
     if (tooShortAnswer(answer)) {
       await msg.author.send("❌ الإجابة قصيرة جدًا أو غير واضحة. فضلاً أعد كتابة إجابة مفهومة.");
       return;
     }
 
-if (session.type === "rp" && current.key === "story") {
+    if (session.type === "rp" && current.key === "story") {
+      let rejectReasons = [];
 
-  let rejectReasons = [];
+      if (wordCount(answer) < 150) {
+        rejectReasons.push("القصة أقل من 150 كلمة");
+      }
 
-  // شرط عدد الكلمات
-  if (wordCount(answer) < 150) {
-    rejectReasons.push("القصة أقل من 150 كلمة");
-  }
+      const aiPatterns = [
+        "في عالم",
+        "تدور أحداث",
+        "منذ صغره",
+        "كبر وهو",
+        "في أحد الأيام",
+        "لطالما كان",
+        "بدأت القصة",
+        "كان يعيش",
+        "في مدينة",
+      ];
 
-  // كشف AI (محسن)
-  const aiPatterns = [
-    "في عالم",
-    "تدور أحداث",
-    "منذ صغره",
-    "كبر وهو",
-    "في أحد الأيام",
-    "لطالما كان",
-    "بدأت القصة",
-    "كان يعيش",
-    "في مدينة",
-  ];
+      let aiScore = 0;
+      for (const pattern of aiPatterns) {
+        if (answer.includes(pattern)) {
+          aiScore++;
+        }
+      }
 
-  let aiScore = 0;
-  for (const pattern of aiPatterns) {
-    if (answer.includes(pattern)) {
-      aiScore++;
+      if (aiScore >= 4) {
+        rejectReasons.push("القصة تبدو مولدة بمساعدة الذكاء الاصطناعي");
+      }
+
+      if (rejectReasons.length > 0) {
+        await msg.author.send(
+          "❌ تم رفض التقديم.\n\nسبب الرفض:\n• " + rejectReasons.join("\n• ")
+        );
+
+        endSession(msg.author.id);
+        return;
+      }
     }
-  }
 
-  if (aiScore >= 4) {
-    rejectReasons.push("القصة تبدو مولدة بمساعدة الذكاء الاصطناعي");
-  }
-
-  // لو في أسباب رفض
-  if (rejectReasons.length > 0) {
-    await msg.author.send(
-      "❌ تم رفض التقديم.\n\nسبب الرفض:\n• " +
-      rejectReasons.join("\n• ")
-    );
-
-    endSession(msg.author.id);
-    return;
-  }
-}
     session.answers[current.key] = answer;
     session.step += 1;
     sessions.set(msg.author.id, session);
