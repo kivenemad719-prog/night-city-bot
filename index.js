@@ -35,6 +35,12 @@ const RP_APPLY_PANEL_CHANNEL_ID = "1465803291714785481";
 // روم بانل الخدمات فقط
 const SERVICES_PANEL_CHANNEL_ID = "1465757986684403828";
 
+// روم صناع المحتوى
+const CREATOR_REGISTRY_CHANNEL_ID = "1490129099535028235";
+
+// لو حبيت تستخدمها بعدين لإعلانات اللايف
+const LIVE_CHANNEL_ID = "1490129049987715182";
+
 // ================= REVIEW CHANNEL IDS =================
 const RP_REVIEW_CHANNEL_ID = "1477562619001831445";
 const CREATOR_REVIEW_CHANNEL_ID = "1477777545767420116";
@@ -64,9 +70,10 @@ const RP_REJECT1_ROLE_ID = "1477568923208519681";
 const RP_REJECT2_ROLE_ID = "1477569051185119332";
 
 // ================= PANEL MARKERS =================
-const PANEL_MARKER_RP = "PANEL_RP_APPLY_v7";
-const PANEL_MARKER_SERVICES = "PANEL_SERVICES_v7";
-const PANEL_MARKER_CONTROL = "PANEL_CONTROL_v4";
+const PANEL_MARKER_RP = "PANEL_RP_APPLY_v8";
+const PANEL_MARKER_SERVICES = "PANEL_SERVICES_v8";
+const PANEL_MARKER_CONTROL = "PANEL_CONTROL_v5";
+const PANEL_MARKER_CREATORS = "PANEL_CREATORS_v1";
 
 // ======================================================
 // FILES
@@ -74,6 +81,7 @@ const PANEL_MARKER_CONTROL = "PANEL_CONTROL_v4";
 const SETTINGS_FILE = path.join(__dirname, "bot_settings.json");
 const FEEDBACK_FILE = path.join(__dirname, "feedback_users.json");
 const TICKET_RATINGS_FILE = path.join(__dirname, "ticket_ratings.json");
+const CREATORS_FILE = path.join(__dirname, "creators.json");
 
 // ======================================================
 // QUESTIONS
@@ -152,6 +160,7 @@ const defaultSettings = {
   creatorApply: true,
   adminApply: true,
   feedback: true,
+  creatorRegistry: true,
 };
 
 function readJsonFile(file, fallback) {
@@ -180,6 +189,7 @@ function loadSettings() {
 let settings = loadSettings();
 const feedbackUsers = new Set(readJsonFile(FEEDBACK_FILE, []));
 const ticketRatings = readJsonFile(TICKET_RATINGS_FILE, {});
+let creators = readJsonFile(CREATORS_FILE, []);
 
 function saveSettings() {
   writeJsonFile(SETTINGS_FILE, settings);
@@ -191,6 +201,10 @@ function saveFeedbackUsers() {
 
 function saveTicketRatings() {
   writeJsonFile(TICKET_RATINGS_FILE, ticketRatings);
+}
+
+function saveCreators() {
+  writeJsonFile(CREATORS_FILE, creators);
 }
 
 const sessions = new Map();
@@ -379,6 +393,73 @@ async function createTranscriptFile(channel) {
 }
 
 // ======================================================
+// CREATOR LINK PARSER
+// ======================================================
+const PLATFORMS = [
+  {
+    name: "Twitch",
+    color: 0x9146ff,
+    regex: /twitch\.tv\/([^/?#]+)/i,
+  },
+  {
+    name: "Kick",
+    color: 0x53fc18,
+    regex: /kick\.com\/([^/?#]+)/i,
+  },
+  {
+    name: "YouTube",
+    color: 0xff0000,
+    regex: /youtube\.com\/@([^/?#]+)/i,
+  },
+  {
+    name: "YouTube",
+    color: 0xff0000,
+    regex: /youtube\.com\/channel\/([^/?#]+)/i,
+  },
+  {
+    name: "YouTube",
+    color: 0xff0000,
+    regex: /youtube\.com\/c\/([^/?#]+)/i,
+  },
+  {
+    name: "YouTube",
+    color: 0xff0000,
+    regex: /youtube\.com\/user\/([^/?#]+)/i,
+  },
+  {
+    name: "TikTok",
+    color: 0x111111,
+    regex: /tiktok\.com\/@([^/?#]+)/i,
+  },
+];
+
+function parseCreatorLink(link) {
+  const cleanLink = String(link || "").trim();
+
+  for (const p of PLATFORMS) {
+    const match = cleanLink.match(p.regex);
+    if (match) {
+      return {
+        platform: p.name,
+        color: p.color,
+        name: match[1],
+        link: cleanLink,
+      };
+    }
+  }
+
+  return null;
+}
+
+function findExistingCreator(userId, link) {
+  return creators.find(
+    (c) =>
+      String(c.userId) === String(userId) &&
+      String(c.link).toLowerCase() === String(link).toLowerCase()
+  );
+}
+
+// ======================================================
 // PRETTY EMBEDS
 // ======================================================
 function buildWelcomeEmbed(member) {
@@ -531,6 +612,20 @@ function ticketRatingRequestEmbed(channelName) {
     .setTimestamp();
 }
 
+function creatorRegistryEmbed(data, discordUserId) {
+  return new EmbedBuilder()
+    .setColor(data.color)
+    .setTitle("🎥 صانع محتوى جديد")
+    .setDescription(
+      `**العضو:** <@${discordUserId}>\n` +
+      `**المنصة:** ${data.platform}\n` +
+      `**اسم القناة:** ${data.name}\n\n` +
+      `**الرابط:**\n${data.link}`
+    )
+    .setFooter({ text: "Night City RP • Creators" })
+    .setTimestamp();
+}
+
 function buildTicketRatingRow(channelId) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`ticket_rate_${channelId}_1`).setLabel("⭐").setStyle(ButtonStyle.Danger),
@@ -590,6 +685,31 @@ async function buildServicesPanelPayload() {
   return { embeds: [embed], components: [row] };
 }
 
+async function buildCreatorRegistryPanelPayload() {
+  const embed = new EmbedBuilder()
+    .setColor(0x00c2ff)
+    .setTitle("🎥 تسجيل صناع المحتوى")
+    .setDescription(
+      "اضغط الزر بالأسفل لإضافة رابط منصتك.\n\n" +
+      "المنصات المدعومة حاليًا:\n" +
+      "• Twitch\n" +
+      "• Kick\n" +
+      "• YouTube\n" +
+      "• TikTok"
+    )
+    .setFooter({ text: `Night City RP • ${PANEL_MARKER_CREATORS}` });
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("add_creator_link")
+      .setLabel(settings.creatorRegistry ? "➕ إضافة رابط منصة" : "🚫 التسجيل مغلق")
+      .setStyle(settings.creatorRegistry ? ButtonStyle.Success : ButtonStyle.Secondary)
+      .setDisabled(!settings.creatorRegistry)
+  );
+
+  return { embeds: [embed], components: [row] };
+}
+
 async function buildControlPanelPayload() {
   const embed = new EmbedBuilder()
     .setColor(0xf1c40f)
@@ -612,7 +732,8 @@ async function buildControlPanelPayload() {
 
   const row3 = new ActionRowBuilder().addComponents(
     featureButton("toggle_adminApply", "تقديم الإدارة", settings.adminApply),
-    featureButton("toggle_creatorApply", "تقديم صانع محتوى", settings.creatorApply)
+    featureButton("toggle_creatorApply", "تقديم صانع محتوى", settings.creatorApply),
+    featureButton("toggle_creatorRegistry", "تسجيل صناع المحتوى", settings.creatorRegistry)
   );
 
   return { embeds: [embed], components: [row1, row2, row3] };
@@ -632,6 +753,14 @@ async function ensurePanels(guild) {
     const old = await findMarkerMessage(servicesChannel, PANEL_MARKER_SERVICES);
     const payload = await buildServicesPanelPayload();
     if (!old) await servicesChannel.send(payload).catch(() => {});
+    else await old.edit(payload).catch(() => {});
+  }
+
+  const creatorChannel = await guild.channels.fetch(CREATOR_REGISTRY_CHANNEL_ID).catch(() => null);
+  if (creatorChannel?.isTextBased()) {
+    const old = await findMarkerMessage(creatorChannel, PANEL_MARKER_CREATORS);
+    const payload = await buildCreatorRegistryPanelPayload();
+    if (!old) await creatorChannel.send(payload).catch(() => {});
     else await old.edit(payload).catch(() => {});
   }
 
@@ -689,7 +818,13 @@ client.once("clientReady", async () => {
 client.on("messageDelete", async (message) => {
   try {
     const footer = message.embeds?.[0]?.footer?.text || "";
-    if (!footer.includes(PANEL_MARKER_RP) && !footer.includes(PANEL_MARKER_SERVICES) && !footer.includes(PANEL_MARKER_CONTROL)) return;
+    if (
+      !footer.includes(PANEL_MARKER_RP) &&
+      !footer.includes(PANEL_MARKER_SERVICES) &&
+      !footer.includes(PANEL_MARKER_CONTROL) &&
+      !footer.includes(PANEL_MARKER_CREATORS)
+    ) return;
+
     if (!message.guildId) return;
     const guild = await client.guilds.fetch(message.guildId).catch(() => null);
     if (!guild) return;
@@ -973,6 +1108,22 @@ async function openTicketRatingReasonModal(interaction, channelId, stars) {
   await interaction.showModal(modal);
 }
 
+async function openCreatorLinkModal(interaction) {
+  const modal = new ModalBuilder()
+    .setCustomId("modal_add_creator_link")
+    .setTitle("إضافة رابط منصة");
+
+  const input = new TextInputBuilder()
+    .setCustomId("link")
+    .setLabel("ضع رابط المنصة")
+    .setPlaceholder("مثال: https://twitch.tv/shady")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  modal.addComponents(new ActionRowBuilder().addComponents(input));
+  await interaction.showModal(modal);
+}
+
 // ======================================================
 // INTERACTIONS
 // ======================================================
@@ -1009,6 +1160,7 @@ client.on("interactionCreate", async (interaction) => {
           toggle_feedback: "feedback",
           toggle_adminApply: "adminApply",
           toggle_creatorApply: "creatorApply",
+          toggle_creatorRegistry: "creatorRegistry",
         };
 
         const key = map[customId];
@@ -1055,6 +1207,14 @@ client.on("interactionCreate", async (interaction) => {
       if (customId.startsWith("feedback_")) {
         const stars = customId.split("_")[1];
         return openFeedbackReasonModal(interaction, stars);
+      }
+
+      // ===== CREATOR REGISTRY BUTTON =====
+      if (customId === "add_creator_link") {
+        if (!settings.creatorRegistry) {
+          return replyEphemeral(interaction, "⚠️ تسجيل صناع المحتوى مغلق حاليًا.");
+        }
+        return openCreatorLinkModal(interaction);
       }
 
       // ===== RP APPLY =====
@@ -1458,6 +1618,55 @@ client.on("interactionCreate", async (interaction) => {
           content: "✅ شكرًا لك، تم إرسال تقييم التذكرة بنجاح.",
           flags: MessageFlags.Ephemeral,
         }).catch(() => {});
+        return;
+      }
+
+      // ===== CREATOR LINK REGISTRY MODAL =====
+      if (id === "modal_add_creator_link") {
+        if (!settings.creatorRegistry) {
+          return replyEphemeral(interaction, "⚠️ تسجيل صناع المحتوى مغلق حاليًا.");
+        }
+
+        const link = interaction.fields.getTextInputValue("link");
+        const parsed = parseCreatorLink(link);
+
+        if (!parsed) {
+          return interaction.reply({
+            content: "❌ الرابط غير مدعوم حاليًا. جرّب Twitch أو Kick أو YouTube أو TikTok.",
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+
+        if (findExistingCreator(interaction.user.id, parsed.link)) {
+          return interaction.reply({
+            content: "⚠️ هذا الرابط مسجل بالفعل عندك.",
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+
+        creators.push({
+          userId: interaction.user.id,
+          platform: parsed.platform,
+          name: parsed.name,
+          link: parsed.link,
+          addedAt: new Date().toISOString(),
+        });
+        saveCreators();
+
+        const creatorChannel = await interaction.guild.channels.fetch(CREATOR_REGISTRY_CHANNEL_ID).catch(() => null);
+        if (creatorChannel?.isTextBased()) {
+          await creatorChannel.send({
+            embeds: [creatorRegistryEmbed(parsed, interaction.user.id)],
+          }).catch(() => {});
+        }
+
+        await interaction.reply({
+          content:
+            `✅ تم تسجيل رابطك بنجاح.\n` +
+            `المنصة: ${parsed.platform}\n` +
+            `الاسم المستخرج: ${parsed.name}`,
+          flags: MessageFlags.Ephemeral,
+        });
         return;
       }
     }
